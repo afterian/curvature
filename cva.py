@@ -13,7 +13,7 @@ To do:
 -drive needs uv pos
 -update loc to contain manual uv pos controls. 
 
-i wanted to test out this notes feature. on git. 
+
 """
 ##version .06 "Lamprey" added loc array functionality. Select some things, click button, get locs at pos
 ##version .07 PosAtSpot ads a loc at surface pos,  def for Surface to pointOnsurface to Locater, it mainLooped will eventually be depreciated. it works now, not messing with it. But its possibly redundent.
