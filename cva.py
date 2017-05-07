@@ -9,11 +9,11 @@ cva.cvaUI()
 
 To do:
 -separate out ramp creation. add a selector for it. but also add a button for creating a default ramp like i have.
--add alpha counter to all functions.
+
 -drive needs uv pos
--update loc to contain manual uv pos controls. 
-
-
+-update loc to contain manual uv pos controls.
+-supper duper . add a selection to dupe instead of ref.
+add nurb sphere upgrade.
 """
 ##version .06 "Lamprey" added loc array functionality. Select some things, click button, get locs at pos
 ##version .07 PosAtSpot ads a loc at surface pos,  def for Surface to pointOnsurface to Locater, it mainLooped will eventually be depreciated. it works now, not messing with it. But its possibly redundent.
@@ -21,6 +21,7 @@ To do:
 #version .07 adjusting loccountx , y  to be able to do a single row or collum.
 #adapting to pllugin changes
 #version .10 going beta. Changing terminollgy so i can go opensource.
+#version .11 added alpha counter functionality to the other items.
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
@@ -40,7 +41,7 @@ cva_root=""
 upX=False
 upY=False
 upZ=True
-createCAPN=True
+createCAPNon=True
 inMode=1
 myNameSpace=""
 createWithAss=False
@@ -83,6 +84,8 @@ def cvaUI():
         #Alpha Numeric counter.
     cmds.textField("cvaAlphaCounterTx", text = "aaa")
     cmds.button(command = cvaAlphaCounterSet, label = "set alpha counter", w = 350, h = 20)
+    cmds.textField("cva", w= 350, tx= "cva")
+    cmds.button(command = getcvaName, label = "Set CVA", w = 350, h = 20)
     tabLayout = cmds.tabLayout("mainTabs", imw = 5, imh = 5)
 
     tabLayout = cmds.tabLayout("mainTabs", imw = 5, imh = 5)
@@ -93,8 +96,7 @@ def cvaUI():
 
     #curveAture tab
     cmds.columnLayout("CurVeAture", w = 350, h =600, parent = "mainTabs")
-    cmds.textField("cva", w= 350, tx= "cva_aaa")
-    cmds.button(command = getcvaName, label = "Set CVA", w = 350, h = 20)
+
     cmds.textField("curveseltx", w= 350, en = False, text = "NO SURFACE SELECTED")
 
     cmds.button(command = getcurvesel, label = "load nurbs Surface", w = 350, h = 20)
@@ -128,16 +130,16 @@ def cvaUI():
     cmds.columnLayout("Controls and Connections", w = 350, h =600, parent = "mainTabs")
 
     #create a peon
-    masterName= cmds.textField("peonName", tx = "peon_aaa")
+    masterName= cmds.textField("peonName", tx = "peon")
     cmds.button(command = createPeon, label = "Create Peon", w = 300, h = 20)
 
 
     #create a loc
-    masterName= cmds.textField("locName", tx = "loc_aaa")
+    masterName= cmds.textField("locName", tx = "loc")
     cmds.button(command = createLocNew, label = "Create Loc", w = 300, h = 20)
 
     #master button
-    masterName= cmds.textField("masterName", tx = "master_aaa")
+    masterName= cmds.textField("masterName", tx = "master")
     cmds.button(command = createMaster, label = "Create Master", w = 300, h = 20)
 
     #utilitys
@@ -162,7 +164,7 @@ def cvaUI():
     cmds.columnLayout("Lamprey", w = 350, h =600, parent = "mainTabs")
     #loc array
     cmds.separator(h=40)
-    masterName= cmds.textField("arrayName", tx = "ray_aaa")
+    masterName= cmds.textField("arrayName", tx = "ray")
     cmds.button(command = locArray, label = "Loc Array", w = 300, h = 20)
     cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
     cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
@@ -181,7 +183,7 @@ def cvaUI():
     cmds.columnLayout("Assets", w = 350, h =600, parent = "mainTabs")
     #asset a
     cmds.columnLayout("Asset_a", w = 350, h =600, parent = "Assets")
-    cmds.textField("name_space_a", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_a", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_a", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_a"), w=30, h=30, image = imagePathFolder)
@@ -195,7 +197,7 @@ def cvaUI():
 
     #asset b
     cmds.columnLayout("Asset_b", w = 350, h =600, parent = "Asset_a")
-    cmds.textField("name_space_b", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_b", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_b", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_b"), w=30, h=30, image = imagePathFolder)
@@ -205,7 +207,7 @@ def cvaUI():
 
     #asset C
     cmds.columnLayout("Asset_c", w = 350, h =600, parent = "Asset_b")
-    cmds.textField("name_space_c", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_c", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_c", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_c"), w=30, h=30, image = imagePathFolder)
@@ -215,7 +217,7 @@ def cvaUI():
 
     #asset D
     cmds.columnLayout("Asset_d", w = 350, h =600, parent = "Asset_c")
-    cmds.textField("name_space_d", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_d", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_d", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_d"), w=30, h=30, image = imagePathFolder)
@@ -224,7 +226,7 @@ def cvaUI():
     cmds.button( command= addAssetImp_d,label="Import and Attach", w =155, h=20)
     #asset e
     cmds.columnLayout("Asset_e", w = 350, h =600, parent = "Asset_d")
-    cmds.textField("name_space_e", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_e", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_e", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_e"), w=30, h=30, image = imagePathFolder)
@@ -233,7 +235,7 @@ def cvaUI():
     cmds.button( command= addAssetImp_e,label="Import and Attach", w =155, h=20)
     #asset f
     cmds.columnLayout("Asset_f", w = 350, h =600, parent = "Asset_e")
-    cmds.textField("name_space_f", w = 100, h=20,tx="asset_aaa")
+    cmds.textField("name_space_f", w = 100, h=20,tx="asset")
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_f", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_f"), w=30, h=30, image = imagePathFolder)
@@ -265,7 +267,11 @@ def addAssetTab (assetID,isRef):
 
     #set the global name space to the field.
     global myNameSpace
-    myNameSpace = cmds.textField(nameSpaceField, query= True, tx=True)
+
+    makeNameSpace = cmds.textField(nameSpaceField, query= True, tx=True)
+    myNameSpace = "%s_%s" %(makeNameSpace , cvaAlphaCounter)
+    cvaAlphaCountUp(cvaAlphaCounter)
+
 
     #gets the current master selection
     mSel = cmds.ls(sl=True)
@@ -275,6 +281,7 @@ def addAssetTab (assetID,isRef):
     if isRef == False:
         cmds.file( fileLocation, i=True,  type = "mayaAscii",  namespace= myNameSpace)
     getPeonAss="%s:peon_aaa"%myNameSpace
+    cvaAlphaCountUp
     cmds.select(mSel[0],getPeonAss)
     attachMS()
 
@@ -644,7 +651,7 @@ def mainLooped(iX,iY):
     cmds.connectAttr(nameAC + ".cry", aimconParent+ ".ry")
     cmds.connectAttr(nameAC + ".crz", aimconParent+ ".rz")
 
-    if createCAPN ==True:
+    if createCAPNon ==True:
         #create the ColorAatPointNode CAPN
         CAPNType = "scale"
         CAPNScale = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
@@ -686,8 +693,8 @@ def mainLooped(iX,iY):
         CAPNDrive = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
 
         cmds.connectAttr(globDriveRamp+".outColor", CAPNDrive +".inColor")
-        cmds.connectAttr(poca + ".parameterU", CAPNDrive + ".inUCoord" ,force = True)
-        cmds.connectAttr(poca + ".parameterV", CAPNDrive + ".inVCoord" ,force = True)
+        cmds.connectAttr(poct + ".parameterU", CAPNDrive + ".inUCoord" ,force = True)
+        cmds.connectAttr(poct + ".parameterV", CAPNDrive + ".inVCoord" ,force = True)
         #need an rgbto lum node, because its a single value not a color.
         lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNDrive +".outColor", lumDrive +".value")
@@ -705,14 +712,14 @@ def mainLooped(iX,iY):
 
 
 
+
 def createMS(masterName,typeMS): # this is the def for createing Master Peon items.
     global lastMScreated
     global masterOutGlobal
     if typeMS == "master":
         print typeMS
-
         #create the octocurve shape.
-        mel.eval("curve -d 1 -p 0 0.5 -0.05 -p -0.351178 0.354537 -0.05 -p -0.5 0 -0.05 -p -0.353553 -0.353553 -0.05 -p 0 -0.5 -0.05 -p 0.353553 -0.353553 -0.05 -p 0.5 0 -0.05 -p 0.353553 0.353553 -0.05 -p 0 0.5 -0.05 -p 0 0.5 0.05 -p 0 0.5 0.123731 -p -0.146466 0.5 0.123731 -p 0.00155382 0.5 0.186527 -p 0.137912 0.5 0.126422 -p 0 0.5 0.123731 -p 0 0.5 0.05 -p -0.353553 0.353553 0.05 -p -0.5 0 0.05 -p -0.5 0 0.176817 -p -0.5 0.0924729 0.136112 -p -0.5 -0.103869 0.128929 -p -0.5 0 0.174423 -p -0.5 0 0.05 -p -0.353176 -0.35371 0.05 -p -0.00415098 -0.498281 0.05 -p -0.00415098 -0.498281 0.126441 -p -0.148056 -0.498281 0.126441 -p 0.00280931 -0.498281 0.188869 -p 0.138068 -0.498281 0.124707 -p 0.00107523 -0.498281 0.124707 -p -0.00415098 -0.498281 0.05 -p 0.353553 -0.353553 0.05 -p 0.497706 -0.00553787 0.05 -p 0.497706 -0.00553787 0.171112 -p 0.497706 0.0854736 0.134867 -p 0.497706 -0.102769 0.134867 -p 0.497706 -0.00455561 0.166435 -p 0.498113 -0.00455561 0.05 -p 0.355252 0.349452 0.05 -p 0 0.5 0.05 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 -k 13 -k 14 -k 15 -k 16 -k 17 -k 18 -k 19 -k 20 -k 21 -k 22 -k 23 -k 24 -k 25 -k 26 -k 27 -k 28 -k 29 -k 30 -k 31 -k 32 -k 33 -k 34 -k 35 -k 36 -k 37 -k 38 -k 39 ; ")
+        mel.eval("curve -d 1 -p -1 0 0 -p 0 -1 0 -p 1 0 0 -p 0 1 0 -p -1 0 0 -p 0 0 1 -p 1 0 0 -p 0 0 -1 -p -1 0 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8; ")
 
 
     #create a locator.
@@ -731,18 +738,15 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.addAttr (ln = "drive", k = True, dv = 0)
     cmds.addAttr (ln = "uniform_scale", sn = "uscale" , k = True, dv = 1)
     cmds.addAttr (ln = "world_blend", sn = "wblend" , k = True, dv = 1,minValue=0, maxValue=1)
-    """# not currently using World translates. done with the _w grp.
-    cmds.addAttr (ln = "world_translate_x", sn = "wtx", k = True, dv = 0)
-    cmds.addAttr (ln = "world_translate_y", sn = "wty", k = True, dv = 0)
-    cmds.addAttr (ln = "world_translate_z", sn = "wtz", k = True, dv = 0)
-    cmds.addAttr (ln = "world_rotate_x", sn = "wrx", k = True, dv = 0)
-    cmds.addAttr (ln = "world_rotate_y", sn = "wry", k = True, dv = 0)
-    cmds.addAttr (ln = "world_rotate_z", sn = "wrz", k = True, dv = 0)
-    """
     cmds.addAttr (ln="drive_offset", sn="dvo", k= True, dv=0)
-    cmds.connectAttr( ".uniform_scale",   ".scaleX")
-    cmds.connectAttr( ".uniform_scale",   ".scaleY")
-    cmds.connectAttr( ".uniform_scale",   ".scaleZ")
+    cmds.addAttr (ln = "v_pos", k = True, minValue=0, maxValue=1, dv = 0)
+    cmds.addAttr (ln = "u_pos", k = True, minValue=0, maxValue=1, dv = 0)
+    cmds.addAttr (ln = "v_pos_offset", k = True, dv = 0)
+    cmds.addAttr (ln = "u_pos_offset", k = True, dv = 0)
+    cmds.addAttr (ln = "v_pos_mult", k = True, dv = 0)
+    cmds.addAttr (ln = "u_pos_mult", k = True, dv = 0)
+
+
 
     #type specific settings.
     if typeMS =="master":
@@ -824,20 +828,27 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     masterOutGlobal = masterOut
 
 def createLocNew(masterName):
-    masterName = cmds.textField("locName", q=True, text = True)
+    txFieldName = cmds.textField("locName",  q=True, text = True)#get name from text feild
+    masterName = "%s_%s" % (txFieldName,cvaAlphaCounter)
+    cvaAlphaCountUp(cvaAlphaCounter)
     typeMS = "loc"
     locOB = createMS(masterName,typeMS)
 
 
 
 def createMaster(masterName):
-    masterName = cmds.textField("masterName", q=True, text = True)#get name from text feild
+    txFieldName = cmds.textField("masterName",  q=True, text = True)#get name from text feild
+    masterName = "%s_%s" % (txFieldName,cvaAlphaCounter)
+    cvaAlphaCountUp(cvaAlphaCounter)
     typeMS="master"#setting the creation type.
     masterOB = createMS(masterName,typeMS)
 
 
 def createPeon(masterName):
-    masterName = cmds.textField("peonName", q=True, text = True)#get name from text feild
+
+    txFieldName = cmds.textField("peonName",  q=True, text = True)#get name from text feild
+    masterName = "%s_%s" % (txFieldName,cvaAlphaCounter)
+    cvaAlphaCountUp(cvaAlphaCounter)
     typeMS="peon"#setting the creation type.
     peonOB = createMS(masterName,typeMS)
 
@@ -1029,6 +1040,7 @@ def addMultiAssetCVA(assetID,isRef):
 
 ##Loc Array aka lamprey
 def locArray(masterName):
+
     masterName = cmds.textField("arrayName", q=True, text = True)
     typeMS = "loc"
     selArray = cmds.ls(sl=True)
@@ -1037,7 +1049,8 @@ def locArray(masterName):
 
 
     for iray in xrange (0,aCount):
-        irayName = "%s_%s" % (masterName,iray)
+        irayName = "%s_%s" % (masterName,cvaAlphaCounter)
+        cvaAlphaCountUp(cvaAlphaCounter)
         cmds.select(selArray[iray])
         irayPos = cmds.xform(query=True, worldSpace=True, translation =True)
         irayRot = cmds.xform(query=True, worldSpace=True, rotation =True)
