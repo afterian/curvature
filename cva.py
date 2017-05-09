@@ -1,6 +1,7 @@
 import maya.cmds as cmds
 import maya.mel as mel
 from functools import partial
+import xml.dom.minidom as xd
 
 """ windows not saving my shelf buttons.
 import cva
@@ -10,8 +11,7 @@ cva.cvaUI()
 To do:
 -separate out ramp creation. add a selector for it. but also add a button for creating a default ramp like i have.
 
--drive needs uv pos
--update loc to contain manual uv pos controls.
+
 -supper duper . add a selection to dupe instead of ref.
 add nurb sphere upgrade.
 """
@@ -22,6 +22,7 @@ add nurb sphere upgrade.
 #adapting to pllugin changes
 #version .10 going beta. Changing terminollgy so i can go opensource.
 #version .11 added alpha counter functionality to the other items.
+#version .12 Xml,
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
@@ -56,13 +57,19 @@ masterOutGlobal=""
 locAtSpot=""
 paraU=""
 paraV=""
+packagePath="E:\greendonkey\projects\CVA\lib\cva_package_plants.xml"
 cvaAlphaCounter="aaa"
 alphal = '0123456789abcdefghijklmnopqrstuvwxyz'
+multiLocList = []
+multiLCC=1
+assetID =0
+fileLocation =""
 #createNewRamps=True
 
 
 #creating the main UI
 def cvaUI():
+    global assetID
     #see if window exists
     if cmds.window("cvaUI" , exists = True):
         cmds.deleteUI("cvaUI")
@@ -187,61 +194,41 @@ def cvaUI():
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_a", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_a"), w=30, h=30, image = imagePathFolder)
+
     #cmds.columnLayout("btn_a", w = 350, h =600, parent = "Assets")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
+    rowColumnLayout = cmds.rowColumnLayout(nc=3,cw=[(1,30),(2,155)])
+    setfileLocationBtn = cmds.button(command= setfileLocation, w=30, h=30,label="Set")
     cmds.button( command= addAssetRef_a,label="Reference and Attach", w =155, h=20)
     cmds.button( command= addAssetImp_a,label="Import and Attach", w =155, h=20)
     cmds.button( command= addAssetMulti_a,label="mulitAss 2", w =155, h=20)
 
 
 
-    #asset b
+    #asset b xml
     cmds.columnLayout("Asset_b", w = 350, h =600, parent = "Asset_a")
-    cmds.textField("name_space_b", w = 100, h=20,tx="asset")
+    cmds.textField("name_space_b", w = 100, h=20,tx="Asset Package", en=False)
+    cmds.textField("assetIDtx", w = 100, h=20,tx="0", en=False)
+    cmds.textField("multiLCCtx", w = 100, h=20,tx="1", en=False)
+    cmds.textField("fileLocationtx", w = 100, h=20,tx="", en=False)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_b", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_b"), w=30, h=30, image = imagePathFolder)
+    inputField=cmds.textField("inputField_b", w = 300, h=20, tx = packagePath)
+    folderBtn = cmds.symbolButton(command= partial(browseFilePathXML,"inputField_b"), w=30, h=30, image = imagePathFolder)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_b,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_b,label="Import and Attach", w =155, h=20)
+    cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
+    cmds.menuItem(label="Select asset",en=False)
+    dom = xd.parse(packagePath)
+    menuAsses = len(dom.getElementsByTagName("asset"))
 
-    #asset C
-    cmds.columnLayout("Asset_c", w = 350, h =600, parent = "Asset_b")
-    cmds.textField("name_space_c", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_c", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_c"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_c,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_c,label="Import and Attach", w =155, h=20)
-
-    #asset D
-    cmds.columnLayout("Asset_d", w = 350, h =600, parent = "Asset_c")
-    cmds.textField("name_space_d", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_d", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_d"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_d,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_d,label="Import and Attach", w =155, h=20)
-    #asset e
-    cmds.columnLayout("Asset_e", w = 350, h =600, parent = "Asset_d")
-    cmds.textField("name_space_e", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_e", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_e"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_e,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_e,label="Import and Attach", w =155, h=20)
-    #asset f
-    cmds.columnLayout("Asset_f", w = 350, h =600, parent = "Asset_e")
-    cmds.textField("name_space_f", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_f", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_f"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_f,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_f,label="Import and Attach", w =155, h=20)
+    for node in dom.getElementsByTagName("asset"):
+        attrs= node.attributes.keys()
+        for assetIDattr in attrs:
+            pair = node.attributes[assetIDattr]
+        assetLocation = node.getAttribute("fileLocation")
+        labelName =node.attributes[assetIDattr].value
+        menuLabel = "%s_%s" %(assetID,labelName)
+        cmds.menuItem( label=menuLabel)
+        assetID = assetID + 1
+    assetID = 0
 
 
 
@@ -275,7 +262,7 @@ def addAssetTab (assetID,isRef):
 
     #gets the current master selection
     mSel = cmds.ls(sl=True)
-    fileLocation = cmds.textField(inputField, query=True, text = True)
+    #fileLocation = cmds.textField(inputField, query=True, text = True)
     if isRef == True:
         cmds.file( fileLocation, reference = True, type = "mayaAscii", namespace= myNameSpace)
     if isRef == False:
@@ -407,11 +394,51 @@ def addAssetImp_f(*args):
 
 
 
-
+def setfileLocation(*args):
+    global fileLocation
+    fileLocation = cmds.textField("inputField_a",query = True, text = True)
 
 def browseFilePath(inputField, *args):
     returnPath=cmds.fileDialog2(fm=1, fileFilter = None, ds=2)[0]
     cmds.textField(inputField, edit = True, text = returnPath)
+
+def browseFilePathXML(inputField, *args):
+    global packagePath
+    returnPath=cmds.fileDialog2(fm=1, fileFilter = None, ds=2)[0]
+    packagePath = returnPath
+    cmds.textField(inputField, edit = True, text = returnPath)
+
+
+def selectAssetID(*args):
+    global fileLocation
+    global assetID
+    global multiLCC
+    global multiLocList
+    getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
+    assetIDstr = getAssetName[None:1]
+    assetID = int(assetIDstr)
+
+    #getting the filepath from teh xml
+    dom= xd.parse(packagePath)
+    asset=dom.getElementsByTagName("asset")[assetID]
+    print (asset.firstChild.data)
+
+    getfileLocation = dom.getElementsByTagName("fileLocation")[assetID]
+    fileLocation = str( (getfileLocation.firstChild.data))
+
+    #gettng the locs list.
+
+    getassloc = dom.getElementsByTagName("loc")[assetID]
+    getMultiAssCount =getassloc.attributes["count"].value
+
+    print (getassloc.firstChild.data)
+
+    cmds.textField("multiLCCtx", edit = True, text = getMultiAssCount )
+    cmds.textField("assetIDtx", edit = True, text = assetID)
+    cmds.textField("fileLocationtx", edit = True, text = fileLocation)
+
+
+
 #alpha counter set
 def cvaAlphaCounterSet(*args):
     global cvaAlphaCounter
