@@ -9,9 +9,11 @@ reload(cva)
 cva.cvaUI()
 
 To do:
+-error check on :
+    -cva name field. no bad names
 -separate out ramp creation. add a selector for it. but also add a button for creating a default ramp like i have.
 
-
+-clear xml menu list when loading new xml.
 -supper duper . add a selection to dupe instead of ref.
 add nurb sphere upgrade.
 """
@@ -57,7 +59,7 @@ masterOutGlobal=""
 locAtSpot=""
 paraU=""
 paraV=""
-packagePath="E:\greendonkey\projects\CVA\lib\cva_package_plants.xml"
+packagePath="Load XML asset package"
 cvaAlphaCounter="aaa"
 alphal = '0123456789abcdefghijklmnopqrstuvwxyz'
 multiLocList = []
@@ -216,19 +218,7 @@ def cvaUI():
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
     cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
     cmds.menuItem(label="Select asset",en=False)
-    dom = xd.parse(packagePath)
-    menuAsses = len(dom.getElementsByTagName("asset"))
 
-    for node in dom.getElementsByTagName("asset"):
-        attrs= node.attributes.keys()
-        for assetIDattr in attrs:
-            pair = node.attributes[assetIDattr]
-        assetLocation = node.getAttribute("fileLocation")
-        labelName =node.attributes[assetIDattr].value
-        menuLabel = "%s_%s" %(assetID,labelName)
-        cmds.menuItem( label=menuLabel)
-        assetID = assetID + 1
-    assetID = 0
 
 
 
@@ -249,8 +239,8 @@ def cvaUI():
 #UI Functions.
 
 def addAssetTab (assetID,isRef):
-    nameSpaceField="name_space_%s" % assetID
-    inputField="inputField_%s"% assetID
+    nameSpaceField="name_space_a"
+    inputField="inputField_a"
 
     #set the global name space to the field.
     global myNameSpace
@@ -404,9 +394,25 @@ def browseFilePath(inputField, *args):
 
 def browseFilePathXML(inputField, *args):
     global packagePath
+    global assetID
     returnPath=cmds.fileDialog2(fm=1, fileFilter = None, ds=2)[0]
     packagePath = returnPath
     cmds.textField(inputField, edit = True, text = returnPath)
+
+    #queryXMLfile
+    dom = xd.parse(packagePath)
+    menuAsses = len(dom.getElementsByTagName("asset"))
+
+    for node in dom.getElementsByTagName("asset"):
+        attrs= node.attributes.keys()
+        for assetIDattr in attrs:
+            pair = node.attributes[assetIDattr]
+        assetLocation = node.getAttribute("fileLocation")
+        labelName =node.attributes[assetIDattr].value
+        menuLabel = "%s_%s" %(assetID,labelName)
+        cmds.menuItem( label=menuLabel, parent="xmlAssetName")
+        assetID = assetID + 1
+    assetID = 0
 
 
 def selectAssetID(*args):
@@ -1033,8 +1039,9 @@ def addAssetCVA(iX,iY,inMode):
         dupInsAss= True
 
     if refAss == True:
-        fileLocation = cmds.textField("inputField_a", query=True, text = True)
-        nameSpaceRef = "%s_%s_%s" % (cvaName,iX,iY)
+        #fileLocation = cmds.textField("inputField_a", query=True, text = True)
+        nameSpaceRef = "%s_%s_%s_%s" % (cvaName,iX,iY,cvaAlphaCounter)
+        cvaAlphaCountUp
         connectCVA = True
         cmds.file( fileLocation, r=True, type = "mayaAscii", namespace= nameSpaceRef)
         if connectCVA == True:
@@ -1046,8 +1053,8 @@ def addAssetCVA(iX,iY,inMode):
 def addMultiAssetCVA(assetID,isRef):
     #set the global name space to the field.
     global myNameSpace
-    nameSpaceField="name_space_%s" % assetID
-    inputField="inputField_%s"% assetID
+    nameSpaceField="name_space_a"
+    inputField="inputField_a"
     myNameSpace = cmds.textField(nameSpaceField, query= True, tx=True)
     fileLocation = cmds.textField(inputField, query=True, text = True)
     mSel = cmds.ls(sl=True)
