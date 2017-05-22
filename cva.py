@@ -28,6 +28,7 @@ add nurb sphere upgrade.
 #version .10 going beta. Changing terminollgy so i can go opensource.
 #version .11 added alpha counter functionality to the other items.
 #version .12 Xml,
+#version .13 fixing bug on xml going past 11.
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
@@ -194,6 +195,7 @@ def cvaUI():
     ###############################
     #assets tab
     cmds.columnLayout("Assets", w = 350, h =600, parent = "mainTabs")
+    cmds.textField("name_space_a", w = 100, h=20,tx="asset")
     #asset type selection
     cmds.checkBox("createWithAss", value = False, onCommand = yesCreateWithAss, offCommand = noCreateWithAss)
     collectionlamprey = cmds.radioCollection()
@@ -202,11 +204,15 @@ def cvaUI():
     cmds.radioButton( label='Duplicate', sl = False, onc= inModeSelect3)
     cmds.radioButton( label='Instance', sl = False, onc= inModeSelect4)
 
+    #asset c super duper
+    #cmds.separator(h=40)
+    cmds.textField("superDupertx",w = 100, h = 20, tx="")
+    cmds.button("superDuperBtn",command = setSuperDuper, w=300, h=30,label="Set from selection")
 
 
     #asset a
     cmds.columnLayout("Asset_a", w = 350, h =600, parent = "Assets")
-    cmds.textField("name_space_a", w = 100, h=20,tx="asset")
+
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_a", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_a"), w=30, h=30, image = imagePathFolder)
@@ -222,21 +228,15 @@ def cvaUI():
 
     #asset b xml
     cmds.columnLayout("Asset_b", w = 350, h =600, parent = "Asset_a")
-    cmds.textField("name_space_b", w = 100, h=20,tx="Asset Package", en=False)
-    cmds.textField("assetIDtx", w = 100, h=20,tx="0", en=False)
-    cmds.textField("multiLCCtx", w = 100, h=20,tx="1", en=False)
-    cmds.textField("fileLocationtx", w = 100, h=20,tx="", en=False)
+
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_b", w = 300, h=20, tx = packagePath)
     folderBtn = cmds.symbolButton(command= partial(browseFilePathXML,"inputField_b"), w=30, h=30, image = imagePathFolder)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
     cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
     cmds.menuItem(label="Select asset",en=False)
+    cmds.button( command= addAssetRef_a,label="Reference and Attach", w =300, h=20)
 
-    #asset c super duper
-    cmds.separator(h=40)
-    cmds.textField("superDupertx",w = 100, h = 20, tx="")
-    cmds.button("superDuperBtn",command = setSuperDuper, w=30, h=30,label="Set from selection")
 
 
     #show window
@@ -420,9 +420,12 @@ def selectAssetID(*args):
     global multiLCC
     global multiLocList
     getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
-    assetIDstr = getAssetName[None:1]
+    assetIDtrim = getAssetName.find("_")
+    assetIDstr = getAssetName[None:assetIDtrim]
+
     assetID = int(assetIDstr)
 
+#vStart=uU4.find('[')
     #getting the filepath from teh xml
     dom= xd.parse(packagePath)
     asset=dom.getElementsByTagName("asset")[assetID]
@@ -778,6 +781,10 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.addAttr (ln = "v_pos_mult", k = True, dv = 0)
     cmds.addAttr (ln = "u_pos_mult", k = True, dv = 0)
 
+    #connecting lost uniformscale
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
 
 
     #type specific settings.
@@ -906,7 +913,7 @@ def attachMS (*args):
     #connect drive.
     if doConnectDrive == True:
         cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    #cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 def attachMSOFF (*args):
     selMS = cmds.ls(sl=True)
     master =selMS[0]
@@ -925,8 +932,8 @@ def attachMSOFF (*args):
     cmds.scaleConstraint(master,peonGrp, mo = True)
 
     #connect drive.
-    #cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    #cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    cmds.connectAttr(master +".drive", peonGrp + ".drive")
+    cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 
 
 def attachCCC (*args):
