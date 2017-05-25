@@ -53,6 +53,7 @@ inMode=1
 myNameSpace=""
 createWithAss=False
 doConnectDrive=True
+doConnectUscale=True
 rayTranslate=True
 rayRotate=True
 rayScale=True
@@ -183,6 +184,7 @@ def cvaUI():
     cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
     cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
     cmds.checkBox("rayScale", value = True, onCommand = yesScale, offCommand = noScale)
+    cmds.checkBox("uScale", value = True, onCommand = yesuScale, offCommand = nouScale)
 
     collectionlamprey = cmds.radioCollection()
     cmds.radioButton( label='connect', sl= False, onc= lampreyConnect)
@@ -228,14 +230,17 @@ def cvaUI():
 
     #asset b xml
     cmds.columnLayout("Asset_b", w = 350, h =600, parent = "Asset_a")
-
+    cmds.textField("name_space_b", w = 100, h=20,tx="Asset Package", en=False)
+    cmds.textField("assetIDtx", w = 100, h=20,tx="0", en=False)
+    cmds.textField("multiLCCtx", w = 100, h=20,tx="1", en=False)
+    cmds.textField("fileLocationtx", w = 100, h=20,tx="", en=False)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_b", w = 300, h=20, tx = packagePath)
     folderBtn = cmds.symbolButton(command= partial(browseFilePathXML,"inputField_b"), w=30, h=30, image = imagePathFolder)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
     cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
     cmds.menuItem(label="Select asset",en=False)
-    cmds.button( command= addAssetRef_a,label="Reference and Attach", w =300, h=20)
+
 
 
 
@@ -322,6 +327,15 @@ def noScale(*args):
 def yesScale(*args):
     global yesScale
     rayScale=True
+
+def yesuScale(*args):
+    global doConnectUscale
+    doConnectUscale=True
+def nouScale(*args):
+    global doConnectUscale
+    doConnectUscale=False
+
+
 
 def lampreyConnect (*args):
     global lampreyConnectOp
@@ -734,7 +748,8 @@ def mainLooped(iX,iY):
         lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNDrive +".outColor", lumDrive +".value")
         drivePlug = lastMScreated + "_m"
-        cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
+        if doConnectDrive == True:
+            cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
 
     #if createing with an asset
     if createWithAss ==True:
@@ -782,9 +797,10 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.addAttr (ln = "u_pos_mult", k = True, dv = 0)
 
     #connecting lost uniformscale
-    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
-    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
-    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
+    if doConnectUscale == True:
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
 
 
     #type specific settings.
@@ -913,7 +929,8 @@ def attachMS (*args):
     #connect drive.
     if doConnectDrive == True:
         cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    if doConnectUscale == True:
+        cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 def attachMSOFF (*args):
     selMS = cmds.ls(sl=True)
     master =selMS[0]
@@ -932,8 +949,10 @@ def attachMSOFF (*args):
     cmds.scaleConstraint(master,peonGrp, mo = True)
 
     #connect drive.
-    cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    if doConnectDrive == True:
+        cmds.connectAttr(master +".drive", peonGrp + ".drive")
+    if doConnectUscale == True:
+        cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 
 
 def attachCCC (*args):
