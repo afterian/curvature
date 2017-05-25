@@ -1,6 +1,7 @@
 import maya.cmds as cmds
 import maya.mel as mel
 from functools import partial
+import xml.dom.minidom as xd
 
 """ windows not saving my shelf buttons.
 import cva
@@ -8,11 +9,15 @@ reload(cva)
 cva.cvaUI()
 
 To do:
+-error check on :
+    -cva name field. no bad names
 -separate out ramp creation. add a selector for it. but also add a button for creating a default ramp like i have.
-
--drive needs uv pos
--update loc to contain manual uv pos controls.
+-curves, and poly support.
+-clear xml menu list when loading new xml.
 -supper duper . add a selection to dupe instead of ref.
+-asset addiition for all generators.
+-multiAss support.
+-query spans and create percent for LOC at spot.
 add nurb sphere upgrade.
 """
 ##version .06 "Lamprey" added loc array functionality. Select some things, click button, get locs at pos
@@ -22,6 +27,8 @@ add nurb sphere upgrade.
 #adapting to pllugin changes
 #version .10 going beta. Changing terminollgy so i can go opensource.
 #version .11 added alpha counter functionality to the other items.
+#version .12 Xml,
+#version .13 fixing bug on xml going past 11.
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
@@ -46,6 +53,7 @@ inMode=1
 myNameSpace=""
 createWithAss=False
 doConnectDrive=True
+doConnectUscale=True
 rayTranslate=True
 rayRotate=True
 rayScale=True
@@ -56,13 +64,20 @@ masterOutGlobal=""
 locAtSpot=""
 paraU=""
 paraV=""
+packagePath="Load XML asset package"
 cvaAlphaCounter="aaa"
 alphal = '0123456789abcdefghijklmnopqrstuvwxyz'
+multiLocList = []
+multiLCC=1
+assetID =0
+fileLocation =""
+superDuper = ""
 #createNewRamps=True
 
 
 #creating the main UI
 def cvaUI():
+    global assetID
     #see if window exists
     if cmds.window("cvaUI" , exists = True):
         cmds.deleteUI("cvaUI")
@@ -71,7 +86,7 @@ def cvaUI():
     window = cmds.window("cvaUI", title = "CurVeAture", w = 350 , h = 500 , mxb = False, sizeable = True)
 
     #create the mainlayout
-    mainLayout = cmds.columnLayout("mainColumn", w = 350, h = 600)
+    mainLayout = cmds.columnLayout("mainColumn", w =360, h = 600)
 
     #banner image
     imagePathBanner = cmds.internalVar(upd = True) + "icons/cvaIcon.jpg"
@@ -103,10 +118,10 @@ def cvaUI():
 
     cmds.intSliderGrp("loccountX", label = "number of locators X", minValue=1, maxValue=100, step=1, field=True, value = 2)
     cmds.intSliderGrp("loccountY", label = "number of locators Y", minValue=1, maxValue=100, step=1, field=True, value = 2)
-    cmds.intSliderGrp(label = "start scale", minValue=1, maxValue=100, step=1, field=True,value = 1, en = False)
-    cmds.intSliderGrp(label = "end scale", minValue=1, maxValue=100, step=1, field=True, value = 1, en = False)
-    cmds.checkBox(label="Auto create with asset, see highlighted asset tab", en=False)
-    cmds.checkBox(label="keep history", en=False)
+    #cmds.intSliderGrp(label = "start scale", minValue=1, maxValue=100, step=1, field=True,value = 1, en = False)
+    #cmds.intSliderGrp(label = "end scale", minValue=1, maxValue=100, step=1, field=True, value = 1, en = False)
+    #cmds.checkBox(label="Auto create with asset, see highlighted asset tab", en=False)
+    #cmds.checkBox(label="keep history", en=False)
     #cmds.checkBox(label="createNewRampsSel", value=True,  onCommand= createNewRampsboxOn,offCommand= createNewRampsboxOff)
 
 
@@ -115,8 +130,8 @@ def cvaUI():
     cmds.radioButton( label='upY', sl = False, onc= getUpVectorY)
     cmds.radioButton( label='upZ', sl = True, onc= getUpVectorZ)
 
-    cmds.text(label ="create with Asset from slot 1", align = "left")
-    cmds.checkBox("refFile", value = False, onCommand = yesRefFile, offCommand = noRefFile)
+    #cmds.text(label ="create with Asset from slot 1", align = "left")
+    #cmds.checkBox("refFile", value = False, onCommand = yesRefFile, offCommand = noRefFile)
     cmds.checkBox("connectDrive", value = True, onCommand = yesDrive, offCommand = noDrive)
 
 
@@ -169,6 +184,7 @@ def cvaUI():
     cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
     cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
     cmds.checkBox("rayScale", value = True, onCommand = yesScale, offCommand = noScale)
+    cmds.checkBox("uScale", value = True, onCommand = yesuScale, offCommand = nouScale)
 
     collectionlamprey = cmds.radioCollection()
     cmds.radioButton( label='connect', sl= False, onc= lampreyConnect)
@@ -181,76 +197,51 @@ def cvaUI():
     ###############################
     #assets tab
     cmds.columnLayout("Assets", w = 350, h =600, parent = "mainTabs")
+    cmds.textField("name_space_a", w = 100, h=20,tx="asset")
+    #asset type selection
+    cmds.checkBox("createWithAss", value = False, onCommand = yesCreateWithAss, offCommand = noCreateWithAss)
+    collectionlamprey = cmds.radioCollection()
+    cmds.radioButton( label='Reference', sl= True, onc= inModeSelect1)
+    cmds.radioButton( label='Import', sl = False, onc= inModeSelect2)
+    cmds.radioButton( label='Duplicate', sl = False, onc= inModeSelect3)
+    cmds.radioButton( label='Instance', sl = False, onc= inModeSelect4)
+
+    #asset c super duper
+    #cmds.separator(h=40)
+    cmds.textField("superDupertx",w = 100, h = 20, tx="")
+    cmds.button("superDuperBtn",command = setSuperDuper, w=300, h=30,label="Set from selection")
+
+
     #asset a
     cmds.columnLayout("Asset_a", w = 350, h =600, parent = "Assets")
-    cmds.textField("name_space_a", w = 100, h=20,tx="asset")
+
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
     inputField=cmds.textField("inputField_a", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_a"), w=30, h=30, image = imagePathFolder)
+
     #cmds.columnLayout("btn_a", w = 350, h =600, parent = "Assets")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
+    rowColumnLayout = cmds.rowColumnLayout(nc=3,cw=[(1,30),(2,155)])
+    setfileLocationBtn = cmds.button(command= setfileLocation, w=30, h=30,label="Set")
     cmds.button( command= addAssetRef_a,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_a,label="Import and Attach", w =155, h=20)
+    #cmds.button( command= addAssetImp_a,label="Import and Attach", w =155, h=20)
     cmds.button( command= addAssetMulti_a,label="mulitAss 2", w =155, h=20)
 
 
 
-    #asset b
+    #asset b xml
     cmds.columnLayout("Asset_b", w = 350, h =600, parent = "Asset_a")
-    cmds.textField("name_space_b", w = 100, h=20,tx="asset")
+    cmds.textField("name_space_b", w = 100, h=20,tx="Asset Package", en=False)
+    cmds.textField("assetIDtx", w = 100, h=20,tx="0", en=False)
+    cmds.textField("multiLCCtx", w = 100, h=20,tx="1", en=False)
+    cmds.textField("fileLocationtx", w = 100, h=20,tx="", en=False)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_b", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_b"), w=30, h=30, image = imagePathFolder)
+    inputField=cmds.textField("inputField_b", w = 300, h=20, tx = packagePath)
+    folderBtn = cmds.symbolButton(command= partial(browseFilePathXML,"inputField_b"), w=30, h=30, image = imagePathFolder)
     rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_b,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_b,label="Import and Attach", w =155, h=20)
-
-    #asset C
-    cmds.columnLayout("Asset_c", w = 350, h =600, parent = "Asset_b")
-    cmds.textField("name_space_c", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_c", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_c"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_c,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_c,label="Import and Attach", w =155, h=20)
-
-    #asset D
-    cmds.columnLayout("Asset_d", w = 350, h =600, parent = "Asset_c")
-    cmds.textField("name_space_d", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_d", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_d"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_d,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_d,label="Import and Attach", w =155, h=20)
-    #asset e
-    cmds.columnLayout("Asset_e", w = 350, h =600, parent = "Asset_d")
-    cmds.textField("name_space_e", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_e", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_e"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_e,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_e,label="Import and Attach", w =155, h=20)
-    #asset f
-    cmds.columnLayout("Asset_f", w = 350, h =600, parent = "Asset_e")
-    cmds.textField("name_space_f", w = 100, h=20,tx="asset")
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,310),(2,30)])
-    inputField=cmds.textField("inputField_f", w = 300, h=20)
-    folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_f"), w=30, h=30, image = imagePathFolder)
-    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,155),(2,155)])
-    cmds.button( command= addAssetRef_f,label="Reference and Attach", w =155, h=20)
-    cmds.button( command= addAssetImp_f,label="Import and Attach", w =155, h=20)
+    cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
+    cmds.menuItem(label="Select asset",en=False)
 
 
-
-    #modify tab
-    cmds.columnLayout("Modify", w = 350, h =600, parent = "mainTabs")
-    cmds.button(command = selectScaleRamp, label = "Select Scale Ramp" , w = 350, h = 20)
-    cmds.button(command = selectPosURamp, label = "Select Posistion X Ramp" , w = 350, h = 20)
-    cmds.button(command = selectPosVRamp, label = "Select Posistion Y Ramp" , w = 350, h = 20)
-    cmds.button(command = selectDriveRamp, label = "Select Drive Ramp" , w = 350, h = 20)
 
 
     #show window
@@ -262,8 +253,8 @@ def cvaUI():
 #UI Functions.
 
 def addAssetTab (assetID,isRef):
-    nameSpaceField="name_space_%s" % assetID
-    inputField="inputField_%s"% assetID
+    nameSpaceField="name_space_a"
+    inputField="inputField_a"
 
     #set the global name space to the field.
     global myNameSpace
@@ -275,7 +266,7 @@ def addAssetTab (assetID,isRef):
 
     #gets the current master selection
     mSel = cmds.ls(sl=True)
-    fileLocation = cmds.textField(inputField, query=True, text = True)
+    #fileLocation = cmds.textField(inputField, query=True, text = True)
     if isRef == True:
         cmds.file( fileLocation, reference = True, type = "mayaAscii", namespace= myNameSpace)
     if isRef == False:
@@ -289,16 +280,15 @@ def addAssetTab (assetID,isRef):
 
 
 
-def yesRefFile(*args):
+
+def yesCreateWithAss(*args):
     global createWithAss
-    global inMode
     createWithAss=True
-    inmode = 1
     print createWithAss
-def noRefFile(*args):
+
+def noCreateWithAss(*args):
     global createWithAss
     createWithAss=False
-    inMode =1
     print createWithAss
 
 def yesDrive(*args):
@@ -338,6 +328,15 @@ def yesScale(*args):
     global yesScale
     rayScale=True
 
+def yesuScale(*args):
+    global doConnectUscale
+    doConnectUscale=True
+def nouScale(*args):
+    global doConnectUscale
+    doConnectUscale=False
+
+
+
 def lampreyConnect (*args):
     global lampreyConnectOp
     global lampreyGetConnectOp
@@ -363,7 +362,32 @@ def lampreyNoConnect (*args):
     lampreyConnectNoneOp=True
 
 
+
+
 #asset defs
+def inModeSelect1 (*args):
+    global inMode
+    inMode = 1
+def inModeSelect2 (*args):
+    global inMode
+    inMode = 2
+def inModeSelect3 (*args):
+    global inMode
+    inMode = 3
+def inModeSelect4 (*args):
+    global inMode
+    inMode = 4
+
+
+def setSuperDuper (*args):
+    global superDuper
+    superDuper = cmds.ls(sl=True)
+    cmds.textField("superDupertx", edit = True, text = superDuper[0])
+
+
+
+
+
 def addAssetRef_a (*args):
     addAssetTab ("a",True)
 
@@ -371,47 +395,72 @@ def addAssetMulti_a (*args):
     addMultiAssetCVA ("a",True)
 
 
-def addAssetImp_a(*args):
-    addAssetTab ("a",False)
 
-def addAssetRef_b (*args):
-    addAssetTab ("b",True)
-
-def addAssetImp_b(*args):
-    addAssetTab ("b",False)
-
-def addAssetRef_c (*args):
-    addAssetTab ("c",True)
-
-def addAssetImp_c(*args):
-    addAssetTab ("c",False)
-
-def addAssetRef_d (*args):
-    addAssetTab ("d",True)
-
-def addAssetImp_d(*args):
-    addAssetTab ("d",False)
-def addAssetRef_e (*args):
-    addAssetTab ("e",True)
-
-def addAssetImp_e(*args):
-    addAssetTab ("e",False)
-
-def addAssetRef_f (*args):
-    addAssetTab ("f",True)
-
-def addAssetImp_f(*args):
-    addAssetTab ("f",False)
-
-
-
-
-
-
+def setfileLocation(*args):
+    global fileLocation
+    fileLocation = cmds.textField("inputField_a",query = True, text = True)
+    cmds.textField("fileLocationtx", edit = True, text = fileLocation)
 
 def browseFilePath(inputField, *args):
     returnPath=cmds.fileDialog2(fm=1, fileFilter = None, ds=2)[0]
     cmds.textField(inputField, edit = True, text = returnPath)
+
+def browseFilePathXML(inputField, *args):
+    global packagePath
+    global assetID
+    returnPath=cmds.fileDialog2(fm=1, fileFilter = None, ds=2)[0]
+    packagePath = returnPath
+    cmds.textField(inputField, edit = True, text = returnPath)
+
+    #queryXMLfile
+    dom = xd.parse(packagePath)
+    menuAsses = len(dom.getElementsByTagName("asset"))
+
+    for node in dom.getElementsByTagName("asset"):
+        attrs= node.attributes.keys()
+        for assetIDattr in attrs:
+            pair = node.attributes[assetIDattr]
+        assetLocation = node.getAttribute("fileLocation")
+        labelName =node.attributes[assetIDattr].value
+        menuLabel = "%s_%s" %(assetID,labelName)
+        cmds.menuItem( label=menuLabel, parent="xmlAssetName")
+        assetID = assetID + 1
+    assetID = 0
+
+
+def selectAssetID(*args):
+    global fileLocation
+    global assetID
+    global multiLCC
+    global multiLocList
+    getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
+    assetIDtrim = getAssetName.find("_")
+    assetIDstr = getAssetName[None:assetIDtrim]
+
+    assetID = int(assetIDstr)
+
+#vStart=uU4.find('[')
+    #getting the filepath from teh xml
+    dom= xd.parse(packagePath)
+    asset=dom.getElementsByTagName("asset")[assetID]
+    print (asset.firstChild.data)
+
+    getfileLocation = dom.getElementsByTagName("fileLocation")[assetID]
+    fileLocation = str( (getfileLocation.firstChild.data))
+
+    #gettng the locs list.
+
+    getassloc = dom.getElementsByTagName("loc")[assetID]
+    getMultiAssCount =getassloc.attributes["count"].value
+
+    print (getassloc.firstChild.data)
+
+    cmds.textField("multiLCCtx", edit = True, text = getMultiAssCount )
+    cmds.textField("assetIDtx", edit = True, text = assetID)
+    cmds.textField("fileLocationtx", edit = True, text = fileLocation)
+
+
+
 #alpha counter set
 def cvaAlphaCounterSet(*args):
     global cvaAlphaCounter
@@ -699,7 +748,8 @@ def mainLooped(iX,iY):
         lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNDrive +".outColor", lumDrive +".value")
         drivePlug = lastMScreated + "_m"
-        cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
+        if doConnectDrive == True:
+            cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
 
     #if createing with an asset
     if createWithAss ==True:
@@ -746,6 +796,11 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.addAttr (ln = "v_pos_mult", k = True, dv = 0)
     cmds.addAttr (ln = "u_pos_mult", k = True, dv = 0)
 
+    #connecting lost uniformscale
+    if doConnectUscale == True:
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
+        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
 
 
     #type specific settings.
@@ -874,7 +929,8 @@ def attachMS (*args):
     #connect drive.
     if doConnectDrive == True:
         cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    #cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    if doConnectUscale == True:
+        cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 def attachMSOFF (*args):
     selMS = cmds.ls(sl=True)
     master =selMS[0]
@@ -893,8 +949,10 @@ def attachMSOFF (*args):
     cmds.scaleConstraint(master,peonGrp, mo = True)
 
     #connect drive.
-    #cmds.connectAttr(master +".drive", peonGrp + ".drive")
-    #cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
+    if doConnectDrive == True:
+        cmds.connectAttr(master +".drive", peonGrp + ".drive")
+    if doConnectUscale == True:
+        cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 
 
 def attachCCC (*args):
@@ -994,33 +1052,56 @@ def selectDriveRamp (*args):
 
 #add asset
 def addAssetCVA(iX,iY,inMode):
-
-
+#refenece
     if inMode == 1:
-        refAss = True
-    if inMode == 2:
-        impAss = True
-    if inMode == 3:
-        dupAss = True
-    if inMode == 4:
-        dupInsAss= True
-
-    if refAss == True:
-        fileLocation = cmds.textField("inputField_a", query=True, text = True)
-        nameSpaceRef = "%s_%s_%s" % (cvaName,iX,iY)
+        #fileLocation = cmds.textField("inputField_a", query=True, text = True)
+        nameSpaceRef = "%s_%s_%s_%s" % (cvaName,iX,iY,cvaAlphaCounter)
+        cvaAlphaCountUp
         connectCVA = True
         cmds.file( fileLocation, r=True, type = "mayaAscii", namespace= nameSpaceRef)
         if connectCVA == True:
             getPeonAss="%s:peon_aaa"%nameSpaceRef
             cmds.select(lastMScreated,getPeonAss)
             attachMS()
+#import
+    if inMode == 2:
+        nameSpaceRef = "%s_%s_%s_%s" % (cvaName,iX,iY,cvaAlphaCounter)
+        cvaAlphaCountUp
+        connectCVA = True
+        cmds.file( fileLocation, i=True, type = "mayaAscii", namespace= nameSpaceRef)
+        if connectCVA == True:
+            getPeonAss="%s:peon_aaa"%nameSpaceRef
+            cmds.select(lastMScreated,getPeonAss)
+            attachMS()
+#duplicate
+    if inMode == 3:
+        nameSpaceRef = "%s_%s_%s_%s_%s" % (cvaName,superDuper[0],iX,iY,cvaAlphaCounter)
+        cvaAlphaCountUp
+        connectCVA = True
+        cmds.select(superDuper)
+        cmds.duplicate(n= nameSpaceRef)
+        if connectCVA == True:
+            getPeonAss=nameSpaceRef
+            cmds.select(lastMScreated,getPeonAss)
+            parentScaleOn()
+#duplicate instance
+    if inMode == 4:
+        nameSpaceRef = "%s_%s_%s_%s_%s" % (cvaName,superDuper[0],iX,iY,cvaAlphaCounter)
+        cvaAlphaCountUp
+        connectCVA = True
+        cmds.select(superDuper)
+        cmds.duplicate(n= nameSpaceRef,ilf =True)
+        if connectCVA == True:
+            getPeonAss=nameSpaceRef
+            cmds.select(lastMScreated,getPeonAss)
+            parentScaleOn()
 
 #add Multi Ass prototype
 def addMultiAssetCVA(assetID,isRef):
     #set the global name space to the field.
     global myNameSpace
-    nameSpaceField="name_space_%s" % assetID
-    inputField="inputField_%s"% assetID
+    nameSpaceField="name_space_a"
+    inputField="inputField_a"
     myNameSpace = cmds.textField(nameSpaceField, query= True, tx=True)
     fileLocation = cmds.textField(inputField, query=True, text = True)
     mSel = cmds.ls(sl=True)
@@ -1069,7 +1150,10 @@ def locArray(masterName):
         if lampreyGetConnectOp ==True:
             cmds.select(selArray[iray],lastMScreated)
             attachMSOFF()
-
+        if createWithAss ==True:
+            iX=0
+            iY=0
+            addAssetCVA(iX,iY,inMode)
 
 
 ############new main looped.  Creates a point on surface node.
@@ -1188,6 +1272,10 @@ def locAtSpot(curveSel):
     locAtSpotName = (cvaName + "_" + cvaAlphaCounter)
     createMS(locAtSpotName,typeMS)
     ultraPOS(uCoord,vCoord)
+    if createWithAss ==True:
+        iX=0
+        iY=0
+        addAssetCVA(iX,iY,inMode)
     cvaAlphaCountUp(cvaAlphaCounter)
 
 

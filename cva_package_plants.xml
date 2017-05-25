@@ -1,0 +1,14 @@
+<?xml version='1.0' encoding='utf-8'?>
+<asset_package>plants
+
+  <asset niceName="loppy tulipA" >LollyT</asset>
+    <fileLocation>//greendonkey/projects/CVA/lib/flowers/loppy_tulip/components/LoppyT_lc0/loppy_tulip_LoppyT_lc0.ma</fileLocation>
+    <loc count="1">peon_aab,peon_aac</loc>
+
+  <asset niceName="loppy TulipB" >LoppyB</asset>
+    <fileLocation>E:\greendonkey\projects\CVA\lib\flowers\loppy_tulip\components\LoppyT_lc0loppy_tulip_LoppyT_lc0.ma</fileLocation>
+    <loc count="5">peon_aaa,peon_aab,peon_aac,peon_aab,peon_aac</loc>
+  <asset niceName="loppy TulipC" >FurbyC</asset>
+    <fileLocation>cfile.ma</fileLocation>
+    <loc count="7">peon_aaa,peon_aab,peon_aac,peon_aab,peon_aac,peon_aab,peon_aac</loc>
+</asset_package>
