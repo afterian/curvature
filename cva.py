@@ -49,11 +49,13 @@ upX=False
 upY=False
 upZ=True
 createCAPNon=True
+LastCAPN=""
 inMode=1
 myNameSpace=""
 createWithAss=False
 doConnectDrive=True
-doConnectUscale=True
+doConnectUscale=False
+doFolUpgrade=False
 rayTranslate=True
 rayRotate=True
 rayScale=True
@@ -184,7 +186,8 @@ def cvaUI():
     cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
     cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
     cmds.checkBox("rayScale", value = True, onCommand = yesScale, offCommand = noScale)
-    cmds.checkBox("uScale", value = True, onCommand = yesuScale, offCommand = nouScale)
+    cmds.checkBox("uScale", value = False, onCommand = yesuScale, offCommand = nouScale)
+    cmds.checkBox("Upgrade nHair Folicule", value = False, onCommand = yesFolUpgrade, offCommand = noFolUpgrade)
 
     collectionlamprey = cmds.radioCollection()
     cmds.radioButton( label='connect', sl= False, onc= lampreyConnect)
@@ -335,6 +338,16 @@ def nouScale(*args):
     global doConnectUscale
     doConnectUscale=False
 
+def yesFolUpgrade(*args):
+    global doFolUpgrade
+    global surfaceType
+    surfaceType = "srfPoly"
+    doFolUpgrade=True
+def noFolUpgrade(*args):
+    global doFolUpgrade
+    doFolUpgrade=False
+
+
 
 
 def lampreyConnect (*args):
@@ -482,6 +495,8 @@ def getcvaName(*args):
 def getcurvesel(*args):
     global curvesel
     global curveselShape
+    global surfaceType
+    surfaceType="srfNurb"
     curvesel=cmds.ls(sl=True)
     addtotx=cmds.textField("curveseltx", edit=True, text=curvesel[0])
     curveselShape = cmds.listRelatives(curvesel, shapes=True)
@@ -517,6 +532,19 @@ def getUpVectorZ (*args):
 
     print upX,upY,upZ
 
+#this will be the new CAPN creation defs. for more flexiablity.
+def createCAPN(CAPNType,uCoord,vCoord,inputColor,inputThing):
+    global lastCAPN
+    if CAPNType == "folCAPN":
+        CAPNTypeName = CAPNType
+        inputColor = inputColor
+        inputThing = inputThing #either a pos or a hair folicule
+        CAPN = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" + CAPNTypeName)
+
+        cmds.connectAttr(inputColor+".outColor", CAPN +".inColor")
+        cmds.connectAttr(inputThing + ".parameterU", CAPN + ".inUCoord" ,force = True)
+        cmds.connectAttr(inputThing + ".parameterV", CAPN+ ".inVCoord" ,force = True)
+        lastCAPN = CAPN
 
 
 ###############################################################################
@@ -747,6 +775,7 @@ def mainLooped(iX,iY):
         #need an rgbto lum node, because its a single value not a color.
         lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNDrive +".outColor", lumDrive +".value")
+        #connect drive
         drivePlug = lastMScreated + "_m"
         if doConnectDrive == True:
             cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
@@ -797,10 +826,10 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.addAttr (ln = "u_pos_mult", k = True, dv = 0)
 
     #connecting lost uniformscale
-    if doConnectUscale == True:
-        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
-        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
-        cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
+    #if doConnectUscale == True:
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleX")
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleY")
+    cmds.connectAttr(master[0] + ".uscale",master[0] + ".scaleZ")
 
 
     #type specific settings.
@@ -1123,7 +1152,7 @@ def addMultiAssetCVA(assetID,isRef):
 def locArray(masterName):
 
     masterName = cmds.textField("arrayName", q=True, text = True)
-    typeMS = "loc"
+    typeMS = "master"
     selArray = cmds.ls(sl=True)
     aCount = len(selArray)
     print aCount
@@ -1136,7 +1165,13 @@ def locArray(masterName):
         irayPos = cmds.xform(query=True, worldSpace=True, translation =True)
         irayRot = cmds.xform(query=True, worldSpace=True, rotation =True)
         iraySca = cmds.xform(query=True, worldSpace=True, scale =True)
+        if doFolUpgrade ==True:
 
+            folU=.1
+            folV=1
+
+            #print inputFol[0]
+            folUpgrade (folU,folV,irayName)
         createMS(irayName,typeMS)
         if rayTranslate == True:
             irayLocPos = cmds.xform (worldSpace=True, translation = irayPos)
@@ -1156,7 +1191,45 @@ def locArray(masterName):
             addAssetCVA(iX,iY,inMode)
 
 
+
+
+            #
 ############new main looped.  Creates a point on surface node.
+def folUpgrade (uCoord,vCoord,folName):
+    paraU = uCoord
+    paraV = vCoord
+    folName=folName
+
+    CAPNType = "folCAPN"
+
+    folSel = cmds.ls(sl=True)
+    cmds.addAttr (folSel, ln = "drive", k = True, dv = 0)
+    cmds.addAttr (folSel, ln = "uniform_scale", k = True, dv = 1)
+    inputFolShape = cmds.listRelatives(folSel, shapes=True)
+    inputFol = inputFolShape
+    inputColor = "ramp1"
+    #createing a ramp
+    #rampName=cvaName + "_folRamp"
+    #rampType= 1 #u-ramp
+    #inputColor=createRamp(rampName,rampType)
+
+    #create CAPN
+    createCAPN(CAPNType,paraU,paraV,inputColor,inputFol[0])
+    #need an rgbto lum node, because its a single value not a color.
+    #addDrive to foli
+
+
+    #create the pos for the posistion aka poca
+    lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
+    cmds.connectAttr(lastCAPN +".outColor", lumDrive +".value")
+    #connect drive
+    drivePlug = str(folSel)
+    cmds.connectAttr (lumDrive +".outValue", folSel[0] +".drive")
+
+
+
+
+
 def ultraPOS(uCoord,vCoord):
     paraU = uCoord
     paraV = vCoord
@@ -1169,6 +1242,7 @@ def ultraPOS(uCoord,vCoord):
 
     cmds.setAttr(poca + ".parameterV", posoncurveY)
     cmds.setAttr(poca + ".parameterU", posoncurveX)
+
 
     cmds.connectAttr(curveselShape[0] +".worldSpace", poca + ".inputSurface", force = True)
 
