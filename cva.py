@@ -2,6 +2,7 @@ import maya.cmds as cmds
 import maya.mel as mel
 from functools import partial
 import xml.dom.minidom as xd
+from random import randint
 
 """ windows not saving my shelf buttons.
 import cva
@@ -29,6 +30,7 @@ add nurb sphere upgrade.
 #version .11 added alpha counter functionality to the other items.
 #version .12 Xml,
 #version .13 fixing bug on xml going past 11.
+#version.4 randy ass
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
@@ -53,9 +55,11 @@ LastCAPN=""
 inMode=1
 myNameSpace=""
 createWithAss=False
-doConnectDrive=True
+doConnectDrive=False
 doConnectUscale=False
+doAutoCreateMS =False
 doFolUpgrade=False
+doRandyAss = False
 rayTranslate=True
 rayRotate=True
 rayScale=True
@@ -74,6 +78,7 @@ multiLCC=1
 assetID =0
 fileLocation =""
 superDuper = ""
+
 #createNewRamps=True
 
 
@@ -134,7 +139,7 @@ def cvaUI():
 
     #cmds.text(label ="create with Asset from slot 1", align = "left")
     #cmds.checkBox("refFile", value = False, onCommand = yesRefFile, offCommand = noRefFile)
-    cmds.checkBox("connectDrive", value = True, onCommand = yesDrive, offCommand = noDrive)
+    cmds.checkBox("connectDrive", value = False, onCommand = yesDrive, offCommand = noDrive)
 
 
     cmds.button(c=createCVA,w=350,h=40,label="create CVA Suface")
@@ -147,6 +152,7 @@ def cvaUI():
     cmds.columnLayout("Controls and Connections", w = 350, h =600, parent = "mainTabs")
 
     #create a peon
+    cmds.checkBox("autocreateMStx",  value = False, onCommand = yesAutoCreateMs, offCommand = noAutoCreateMs)
     masterName= cmds.textField("peonName", tx = "peon")
     cmds.button(command = createPeon, label = "Create Peon", w = 300, h = 20)
 
@@ -209,8 +215,10 @@ def cvaUI():
     cmds.radioButton( label='Duplicate', sl = False, onc= inModeSelect3)
     cmds.radioButton( label='Instance', sl = False, onc= inModeSelect4)
 
+
     #asset c super duper
-    #cmds.separator(h=40)
+    cmds.separator(h=40)
+    cmds.checkBox("randyAsstx", value = False, onCommand = yesRandyAss, offCommand = noRandyAss)
     cmds.textField("superDupertx",w = 100, h = 20, tx="")
     cmds.button("superDuperBtn",command = setSuperDuper, w=300, h=30,label="Set from selection")
 
@@ -227,7 +235,7 @@ def cvaUI():
     setfileLocationBtn = cmds.button(command= setfileLocation, w=30, h=30,label="Set")
     cmds.button( command= addAssetRef_a,label="Reference and Attach", w =155, h=20)
     #cmds.button( command= addAssetImp_a,label="Import and Attach", w =155, h=20)
-    cmds.button( command= addAssetMulti_a,label="mulitAss 2", w =155, h=20)
+    cmds.button( command= addAssetMulti_a,label="mulitAss", w =155, h=20)
 
 
 
@@ -294,6 +302,19 @@ def noCreateWithAss(*args):
     createWithAss=False
     print createWithAss
 
+def noRandyAss(*args):
+    global doRandyAss
+    doRandyAss=False
+    print doRandyAss
+
+def yesRandyAss(*args):
+    global doRandyAss
+    doRandyAss=True
+    print doRandyAss
+
+
+
+
 def yesDrive(*args):
     global doConnectDrive
     global inMode
@@ -347,8 +368,12 @@ def noFolUpgrade(*args):
     global doFolUpgrade
     doFolUpgrade=False
 
-
-
+def yesAutoCreateMs(*args):
+    global doAutoCreateMS
+    doAutoCreateMS=True
+def noAutoCreateMs(*args):
+    global doAutoCreateMS
+    doAutoCreateMScreateMS=False
 
 def lampreyConnect (*args):
     global lampreyConnectOp
@@ -446,14 +471,48 @@ def selectAssetID(*args):
     global assetID
     global multiLCC
     global multiLocList
-    getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
-    assetIDtrim = getAssetName.find("_")
-    assetIDstr = getAssetName[None:assetIDtrim]
+    if doRandyAss==True:
+        print "randy"
+        randyAss()
+    else:
+        getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
+        assetIDtrim = getAssetName.find("_")
+        assetIDstr = getAssetName[None:assetIDtrim]
 
-    assetID = int(assetIDstr)
+        assetID = int(assetIDstr)
 
-#vStart=uU4.find('[')
     #getting the filepath from teh xml
+        dom= xd.parse(packagePath)
+        asset=dom.getElementsByTagName("asset")[assetID]
+        print (asset.firstChild.data)
+
+        getfileLocation = dom.getElementsByTagName("fileLocation")[assetID]
+        fileLocation = str( (getfileLocation.firstChild.data))
+
+    #gettng the locs list.
+
+        getassloc = dom.getElementsByTagName("loc")[assetID]
+        getMultiAssCount =getassloc.attributes["count"].value
+
+#multi ass gathering.
+        print (getassloc.firstChild.data)
+        multiLocListStr = str(getassloc.firstChild.data)
+        multiLocList = multiLocListStr.split(',')
+        cmds.textField("multiLCCtx", edit = True, text = getMultiAssCount )
+        cmds.textField("assetIDtx", edit = True, text = assetID)
+        cmds.textField("fileLocationtx", edit = True, text = fileLocation)
+
+def randyAss(*args):
+    global assetID
+    global fileLocation
+
+    print "randy ass is on bitches."
+    dom = xd.parse(packagePath)
+    menuAssesL = len(dom.getElementsByTagName("asset"))
+    menuAsses = menuAssesL -1
+    print assetID
+    print menuAsses
+    assetID = randint(0,menuAsses)
     dom= xd.parse(packagePath)
     asset=dom.getElementsByTagName("asset")[assetID]
     print (asset.firstChild.data)
@@ -466,13 +525,13 @@ def selectAssetID(*args):
     getassloc = dom.getElementsByTagName("loc")[assetID]
     getMultiAssCount =getassloc.attributes["count"].value
 
+#multi ass gathering.
     print (getassloc.firstChild.data)
-
+    multiLocListStr = str(getassloc.firstChild.data)
+    multiLocList = multiLocListStr.split(',')
     cmds.textField("multiLCCtx", edit = True, text = getMultiAssCount )
     cmds.textField("assetIDtx", edit = True, text = assetID)
     cmds.textField("fileLocationtx", edit = True, text = fileLocation)
-
-
 
 #alpha counter set
 def cvaAlphaCounterSet(*args):
@@ -911,6 +970,12 @@ def createMS(masterName,typeMS): # this is the def for createing Master Peon ite
     cmds.select(masterGrp)
     masterOutGlobal = masterOut
 
+    #create with asset.
+    if doAutoCreateMS ==True:
+        iX=0
+        iY=0
+        addAssetCVA(iX,iY,inMode)
+
 def createLocNew(masterName):
     txFieldName = cmds.textField("locName",  q=True, text = True)#get name from text feild
     masterName = "%s_%s" % (txFieldName,cvaAlphaCounter)
@@ -1066,6 +1131,30 @@ def parentScaleOFF (*args):
     #connect drive.
     #cmds.connectAttr(master +".drive", peonGrp + ".drive")
 
+def parentScaleFol (*args):
+    selMS = cmds.ls(sl=True)
+    master =selMS[0]
+    peon = selMS[1]
+    cmds.select(master)
+
+    #cmds.select(peon)
+    #peonGrp= cmds.pickWalk(d="up")#sets the incoming connection to its _in node.
+
+    peonGrp = peon + "_m"
+    print peonGrp
+
+    #constraints
+    cmds.select(master,peonGrp)
+    #offseting the contrain cuz hair folicules are tilted.
+    cmds.parentConstraint (master,peonGrp, mo=True)
+
+    cmds.scaleConstraint(master,peonGrp, mo = True)
+
+    #connect drive.
+    #if doConnectDrive == True:
+    #    cmds.connectAttr(master +".drive", peonGrp + ".drive")
+    #if doConnectUscale == True:
+    #    cmds.connectAttr(master +".uniform_scale", peon + ".uniform_scale")
 
 
 
@@ -1081,9 +1170,14 @@ def selectDriveRamp (*args):
 
 #add asset
 def addAssetCVA(iX,iY,inMode):
-#refenece
+    print"running select"
+
+
+
+
     if inMode == 1:
-        #fileLocation = cmds.textField("inputField_a", query=True, text = True)
+
+        selectAssetID ()
         nameSpaceRef = "%s_%s_%s_%s" % (cvaName,iX,iY,cvaAlphaCounter)
         cvaAlphaCountUp
         connectCVA = True
@@ -1091,6 +1185,7 @@ def addAssetCVA(iX,iY,inMode):
         if connectCVA == True:
             getPeonAss="%s:peon_aaa"%nameSpaceRef
             cmds.select(lastMScreated,getPeonAss)
+
             attachMS()
 #import
     if inMode == 2:
@@ -1129,20 +1224,30 @@ def addAssetCVA(iX,iY,inMode):
 def addMultiAssetCVA(assetID,isRef):
     #set the global name space to the field.
     global myNameSpace
+
     nameSpaceField="name_space_a"
+
+
     inputField="inputField_a"
-    myNameSpace = cmds.textField(nameSpaceField, query= True, tx=True)
-    fileLocation = cmds.textField(inputField, query=True, text = True)
+    myNameSpaceF = cmds.textField(nameSpaceField, query= True, tx=True)
+    myNameSpace = "%s_%s" %(myNameSpaceF,cvaAlphaCounter)
+
+    #fileLocation = cmds.textField(inputField, query=True, text = True)
     mSel = cmds.ls(sl=True)
 
     aCount = len(mSel)
 
     cmds.file( fileLocation, r=True, type = "mayaAscii", namespace= myNameSpace)
     for iray in xrange (0,aCount):
-         getPeonAss="%s:loc_%s_aaa"% (myNameSpace,iray)
-         cmds.select(mSel[iray],getPeonAss)
-         attachMS()
-
+        print iray
+        multiLocID = multiLocList[iray]
+        print multiLocList[iray]
+        cvaAlphaCountUp (cvaAlphaCounter)
+#old
+        getPeonAss="%s:%s"% (myNameSpace,multiLocID)
+        cmds.select(mSel[iray],getPeonAss)
+        attachMS()
+    cmds.select(multLocList[0])
 
 
 
@@ -1159,8 +1264,9 @@ def locArray(masterName):
 
 
     for iray in xrange (0,aCount):
+
         irayName = "%s_%s" % (masterName,cvaAlphaCounter)
-        cvaAlphaCountUp(cvaAlphaCounter)
+
         cmds.select(selArray[iray])
         irayPos = cmds.xform(query=True, worldSpace=True, translation =True)
         irayRot = cmds.xform(query=True, worldSpace=True, rotation =True)
@@ -1172,7 +1278,9 @@ def locArray(masterName):
 
             #print inputFol[0]
             folUpgrade (folU,folV,irayName)
+        noAutoCreateMs()
         createMS(irayName,typeMS)
+
         if rayTranslate == True:
             irayLocPos = cmds.xform (worldSpace=True, translation = irayPos)
         if rayRotate == True:
@@ -1186,11 +1294,12 @@ def locArray(masterName):
             cmds.select(selArray[iray],lastMScreated)
             attachMSOFF()
         if createWithAss ==True:
-            iX=0
-            iY=0
+            iX=iray
+            iY=iray
+
             addAssetCVA(iX,iY,inMode)
 
-
+        cvaAlphaCountUp(cvaAlphaCounter)
 
 
             #
