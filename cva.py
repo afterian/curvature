@@ -19,7 +19,11 @@ To do:
 -asset addiition for all generators.
 -multiAss support.
 -query spans and create percent for LOC at spot.
+-Locking connect drive to True to prevent a bug while devving. rotation out.
+-added rotation support.
+-asset input selection tab may be borked. see line. 687
 add nurb sphere upgrade.
+-adding controls.
 """
 ##version .06 "Lamprey" added loc array functionality. Select some things, click button, get locs at pos
 ##version .07 PosAtSpot ads a loc at surface pos,  def for Surface to pointOnsurface to Locater, it mainLooped will eventually be depreciated. it works now, not messing with it. But its possibly redundent.
@@ -35,27 +39,38 @@ add nurb sphere upgrade.
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
 curveselShape =""
-cvaName = ""
+cvaName = "cva"
 poca = ""
 lastMScreated =""
 globScaleRamp=""
 globPosURamp=""
 globPosVRamp=""
 globDriveRamp=""
-loccountX=""
-loccountY=""
+globRotXRamp=""
+globRotYRamp=""
+globRotZRamp=""
+globalRotationRamp = ""
+globalFolUpgrade=""
+loccountX=2
+loccountY=2
 segnumX=""
 segnumY=""
 cva_root=""
 upX=False
 upY=False
 upZ=True
-createCAPNon=True
+doCreateCAPN=True
 LastCAPN=""
 inMode=1
 myNameSpace=""
 createWithAss=False
-doConnectDrive=False
+assetfromXML=False
+doConnectDrive=True
+doConnectPosU=True
+doConnectPosV=True
+doConnectRotX=False
+doConnectRotY=False
+doConnectRotZ=False
 doConnectUscale=False
 doAutoCreateMS =False
 doFolUpgrade=False
@@ -90,80 +105,142 @@ def cvaUI():
         cmds.deleteUI("cvaUI")
 
     #create the window
-    window = cmds.window("cvaUI", title = "CurVeAture", w = 350 , h = 500 , mxb = False, sizeable = True)
-
-    #create the mainlayout
-    mainLayout = cmds.columnLayout("mainColumn", w =360, h = 600)
-
-    #banner image
-    imagePathBanner = cmds.internalVar(upd = True) + "icons/cvaIcon.jpg"
+    imagePathBanner = cmds.internalVar(upd = True) + "icons/cvaIcon.png"
     imagePathFolder = cmds.internalVar(upd = True) + "icons/cvaFolder.jpg"
+    imagePathNurbGrid = cmds.internalVar(upd = True) + "icons/nurbArray.png"
+    imagePathFolGrid = cmds.internalVar(upd = True) + "icons/folArray.png"
+    imagePathPaintFol = cmds.internalVar(upd = True) + "icons/folBrush.png"
+    imagePathLamprey = cmds.internalVar(upd = True) + "icons/lamprey.png"
+    imagePathLocASpot = cmds.internalVar(upd = True) + "icons/locAspot.png"
+    imagePathSelFol = cmds.internalVar(upd = True) + "icons/selFol.png"
+    window = cmds.window("cvaUI", title = "CurVeAture", w = 350 , h = 700 , mxb = False, sizeable = True)
+    #create the mainlayout
+    mainLayout = cmds.columnLayout("mainColumn", w =350, h = 700)
+    #banner image
     cmds.image(w = 350, h =60, image = imagePathBanner)
+    cmds.separator(h=40)
+    cmds.textField("cvaNametx",en = False, text = "NO CVA ASSIGNED", w= 360)
+    #feedback
+    cmds.columnLayout( "mainColumn", adjustableColumn = True)
+    cmds.gridLayout("nameGridLayout01", numberOfRowsColumns = (3,2), cellWidthHeight = (180,20), parent = "mainColumn")
 
-    #setting the tabs
-    cmds.textField("cvaNametx",en = False, text = "NO CVA ASSIGNED")
+
+    #cmds.text("cvanameLabel", label = "Current CVA:", width = 20, height = 20, backgroundColor = [0.2, 0.2, 0.2])
+
+    cmds.button(command = getcvaName, label = "Set CVA", w = 350, h = 20)
+    cmds.textField("cva", w= 350, tx= "cva")
 
         #Alpha Numeric counter.
-    cmds.textField("cvaAlphaCounterTx", text = "aaa")
     cmds.button(command = cvaAlphaCounterSet, label = "set alpha counter", w = 350, h = 20)
-    cmds.textField("cva", w= 350, tx= "cva")
-    cmds.button(command = getcvaName, label = "Set CVA", w = 350, h = 20)
-    tabLayout = cmds.tabLayout("mainTabs", imw = 5, imh = 5)
-
-    tabLayout = cmds.tabLayout("mainTabs", imw = 5, imh = 5)
+    cmds.textField("cvaAlphaCounterTx", text = "aaa")
     curvesel = "no surface"
 
-
-
-
-    #curveAture tab
-    cmds.columnLayout("CurVeAture", w = 350, h =600, parent = "mainTabs")
-
+#curveAture tab
+    cmds.button(command = getcurvesel, label = "Load Surface", w = 350, h = 20)
     cmds.textField("curveseltx", w= 350, en = False, text = "NO SURFACE SELECTED")
 
-    cmds.button(command = getcurvesel, label = "load nurbs Surface", w = 350, h = 20)
-
-    cmds.intSliderGrp("loccountX", label = "number of locators X", minValue=1, maxValue=100, step=1, field=True, value = 2)
-    cmds.intSliderGrp("loccountY", label = "number of locators Y", minValue=1, maxValue=100, step=1, field=True, value = 2)
-    #cmds.intSliderGrp(label = "start scale", minValue=1, maxValue=100, step=1, field=True,value = 1, en = False)
-    #cmds.intSliderGrp(label = "end scale", minValue=1, maxValue=100, step=1, field=True, value = 1, en = False)
-    #cmds.checkBox(label="Auto create with asset, see highlighted asset tab", en=False)
-    #cmds.checkBox(label="keep history", en=False)
-    #cmds.checkBox(label="createNewRampsSel", value=True,  onCommand= createNewRampsboxOn,offCommand= createNewRampsboxOff)
 
 
+
+
+    ##main tabs start here.
+    cmds.separator(h =20, vis = False)
+    tabLayout = cmds.tabLayout("mainTabs", parent = mainLayout, imw = 5, imh = 5)
+    cmds.columnLayout("CurVAture", w = 350, h =800, parent = "mainTabs")
+
+
+
+    cmds.intSliderGrp("loccountXtx", label = "number of locators X", minValue=1, maxValue=100, step=1, field=True, value = 2)
+    cmds.intSliderGrp("loccountYtx", label = "number of locators Y", minValue=1, maxValue=100, step=1, field=True, value = 2)
+    rowColumnLayout = cmds.rowColumnLayout(nc=2,cw=[(1,300),(2,50)])
+    cmds.button(c=createCVA,w=300,h=40,label="Create Nurb Grid Array")
+    cmds.image(w = 40, h =40, image = imagePathNurbGrid)
+    cmds.button(command = locAtSpot, label = "Create follicle Grid Array", w = 300, h = 40)
+    cmds.image(w = 40, h =40, image = imagePathFolGrid)
+    cmds.button(command = locAtSpot, label = "Convert Faces to follicles", w = 300, h = 40)
+    cmds.image(w = 40, h =40, image = imagePathSelFol)
+    cmds.button(command = locAtSpot, label = "Paint follicles", w = 300, h = 40)
+    cmds.image(w = 40, h =40, image = imagePathPaintFol)
+
+
+    cmds.button(command = locArray, label = "Lamprey", w = 300, h = 40)
+    cmds.image(w = 40, h =40, image = imagePathLamprey)
+    cmds.button(command = locAtSpot, label = "Loc At surface Point", w = 300, h = 40)
+    cmds.image(w = 40, h =40, image = imagePathLocASpot)
+
+
+    cmds.columnLayout("settingstxCol", w = 350, h =800, parent = "CurVAture")
+    cmds.separator(20, vis = False)
+    cmds.frameLayout("layoutFrameRamps", label = "Ramps and Textures", collapsable = True,  parent = "settingstxCol", w = 350)
+    #layout
+    rowColumnLayout = cmds.rowColumnLayout(nc=3,cw=[(1,170),(2,100),(3,80)])
+    cmds.button(label="Create Ramp")
+    cmds.textField("0002tx", text = "Name")
+    cmds.optionMenu( "createRampType", label='type', changeCommand = selectAssetID)
+    cmds.menuItem(label="U",en=False)
+    cmds.menuItem(label="v",en=False)
+
+    cmds.separator(h = 20, vis = False)
+
+#rampF posU upgrade
+    #cmds.columnLayout("rampPosUsettings", w = 350,  parent = "layoutFrameRamps")
+    #rowColumnLayout = cmds.rowColumnLayout(nc=4,cw=[(1,120),(2,20),(3,130),(4,80)])
+    #cmds.checkBox("autoCreateRampPosU", label = "PosU Ramp", value = True, onCommand = yesCreatePosURamp, offCommand = noCreatePosURamp)
+    #cmds.button(command = setPosURamp, label = "Set", w = 20, h = 20)
+    #cmds.textField("rampNamePosUtx", text = "ramp1")
+    #cmds.button(command = selectPosURamp, label = "Select", w = 40, h = 20)
+
+
+
+
+
+
+
+#rampF follicle upgrade
+    cmds.columnLayout("rampFolsettings", w = 350,  parent = "layoutFrameRamps")
+    rowColumnLayout = cmds.rowColumnLayout(nc=4,cw=[(1,120),(2,20),(3,130),(4,80)])
+    cmds.checkBox("autoCreateRampF", label = "Follicle Upgrade", value = True, onCommand = yesCreateFolUpdgradeRamp, offCommand = noCreateFolUpgradeRamp)
+    cmds.button(command = setFolUpgradeRamp, label = "Set", w = 20, h = 20)
+    cmds.textField("rampNameFtx", text = "ramp1")
+    cmds.button(command = selectFolUpgradeRamp, label = "Select", w = 40, h = 20)
+
+
+
+    cmds.frameLayout("layoutFrameSettings", label = "Settings", collapsable = True,  parent = "settingstxCol")
     collection1 = cmds.radioCollection()
     cmds.radioButton( label='upX', sl= False, onc= getUpVectorX)
     cmds.radioButton( label='upY', sl = False, onc= getUpVectorY)
     cmds.radioButton( label='upZ', sl = True, onc= getUpVectorZ)
 
-    #cmds.text(label ="create with Asset from slot 1", align = "left")
-    #cmds.checkBox("refFile", value = False, onCommand = yesRefFile, offCommand = noRefFile)
-    cmds.checkBox("connectDrive", value = False, onCommand = yesDrive, offCommand = noDrive)
+
+    cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
+    cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
+    cmds.checkBox("rayScale", value = True, onCommand = yesScale, offCommand = noScale)
+    cmds.checkBox("uScale", value = False, onCommand = yesuScale, offCommand = nouScale)
+    cmds.checkBox("Upgrade nHair follicle", value = False, onCommand = yesFolUpgrade, offCommand = noFolUpgrade)
+
+    collectionlamprey = cmds.radioCollection()
+    cmds.radioButton( label='connect', sl= False, onc= lampreyConnect)
+    cmds.radioButton( label='getConnected', sl = False, onc= lampreyGetConnect)
+    cmds.radioButton( label='noConnections', sl = True, onc= lampreyNoConnect)
 
 
-    cmds.button(c=createCVA,w=350,h=40,label="create CVA Suface")
+    cmds.checkBox("createCAPNtx", value = True, onCommand = yesCreateCAPN, offCommand = noCreateCAPN)
+    cmds.checkBox("connectDrive", value = True, onCommand = yesDrive, offCommand = noDrive)
+    cmds.checkBox("posUtx", value = True, onCommand = yesPosU, offCommand = noPosU)
+    cmds.checkBox("posVtx", value = True, onCommand = yesPosV, offCommand = noPosV)
+    cmds.checkBox("rotXtx", value = False, onCommand = yesRotX, offCommand = noRotX)
+    cmds.checkBox("rotYtx", value = False, onCommand = yesRotY, offCommand = noRotY)
+    cmds.checkBox("rotZtx", value = False, onCommand = yesRotZ, offCommand = noRotZ)
     #posAtSpot
 
-    cmds.button(command = locAtSpot, label = "Loc At surface Point", w = 300, h = 20)
+
 
 
     #controls and connections tab
-    cmds.columnLayout("Controls and Connections", w = 350, h =600, parent = "mainTabs")
-
-    #create a peon
-    cmds.checkBox("autocreateMStx",  value = False, onCommand = yesAutoCreateMs, offCommand = noAutoCreateMs)
-    masterName= cmds.textField("peonName", tx = "peon")
-    cmds.button(command = createPeon, label = "Create Peon", w = 300, h = 20)
+    cmds.columnLayout("Connections", w = 350, h =600, parent = "mainTabs")
 
 
-    #create a loc
-    masterName= cmds.textField("locName", tx = "loc")
-    cmds.button(command = createLocNew, label = "Create Loc", w = 300, h = 20)
-
-    #master button
-    masterName= cmds.textField("masterName", tx = "master")
-    cmds.button(command = createMaster, label = "Create Master", w = 300, h = 20)
 
     #utilitys
     cmds.separator(h=40)
@@ -184,21 +261,25 @@ def cvaUI():
 
     #################################
     #Lamprey tab
-    cmds.columnLayout("Lamprey", w = 350, h =600, parent = "mainTabs")
+    cmds.columnLayout("Controls", w = 350, h =600, parent = "mainTabs")
     #loc array
     cmds.separator(h=40)
+    #create a peon
+    cmds.checkBox("autocreateMStx",  value = False, onCommand = yesAutoCreateMs, offCommand = noAutoCreateMs)
+    masterName= cmds.textField("peonName", tx = "peon")
+    cmds.button(command = createPeon, label = "Create Peon", w = 300, h = 20)
+
+
+    #create a loc
+    masterName= cmds.textField("locName", tx = "loc")
+    cmds.button(command = createLocNew, label = "Create Loc", w = 300, h = 20)
+
+    #master button
+    masterName= cmds.textField("masterName", tx = "master")
+    cmds.button(command = createMaster, label = "Create Master", w = 300, h = 20)
     masterName= cmds.textField("arrayName", tx = "ray")
     cmds.button(command = locArray, label = "Loc Array", w = 300, h = 20)
-    cmds.checkBox("rayTranslate", value = True, onCommand = yesTranslate, offCommand = noTranslate)
-    cmds.checkBox("rayRotate", value = True, onCommand = yesRotate, offCommand = noRotate)
-    cmds.checkBox("rayScale", value = True, onCommand = yesScale, offCommand = noScale)
-    cmds.checkBox("uScale", value = False, onCommand = yesuScale, offCommand = nouScale)
-    cmds.checkBox("Upgrade nHair Folicule", value = False, onCommand = yesFolUpgrade, offCommand = noFolUpgrade)
 
-    collectionlamprey = cmds.radioCollection()
-    cmds.radioButton( label='connect', sl= False, onc= lampreyConnect)
-    cmds.radioButton( label='getConnected', sl = False, onc= lampreyGetConnect)
-    cmds.radioButton( label='noConnections', sl = True, onc= lampreyNoConnect)
 
 
 
@@ -209,6 +290,7 @@ def cvaUI():
     cmds.textField("name_space_a", w = 100, h=20,tx="asset")
     #asset type selection
     cmds.checkBox("createWithAss", value = False, onCommand = yesCreateWithAss, offCommand = noCreateWithAss)
+    cmds.checkBox("createWithXMLAss", value = False, onCommand = yesCreateWithXMLAss, offCommand = noCreateWithXMLAss)
     collectionlamprey = cmds.radioCollection()
     cmds.radioButton( label='Reference', sl= True, onc= inModeSelect1)
     cmds.radioButton( label='Import', sl = False, onc= inModeSelect2)
@@ -230,11 +312,11 @@ def cvaUI():
     inputField=cmds.textField("inputField_a", w = 300, h=20)
     folderBtn = cmds.symbolButton(command= partial(browseFilePath,"inputField_a"), w=30, h=30, image = imagePathFolder)
 
-    #cmds.columnLayout("btn_a", w = 350, h =600, parent = "Assets")
+
     rowColumnLayout = cmds.rowColumnLayout(nc=3,cw=[(1,30),(2,155)])
     setfileLocationBtn = cmds.button(command= setfileLocation, w=30, h=30,label="Set")
     cmds.button( command= addAssetRef_a,label="Reference and Attach", w =155, h=20)
-    #cmds.button( command= addAssetImp_a,label="Import and Attach", w =155, h=20)
+
     cmds.button( command= addAssetMulti_a,label="mulitAss", w =155, h=20)
 
 
@@ -256,8 +338,8 @@ def cvaUI():
 
 
     #show window
-    cmds.showWindow(window)
-
+    #cmds.showWindow(window)
+    cmds.dockControl( area='left', floating = False,  content=window, allowedArea="all", label = "Curvature" )
 
 
 #############################################################################
@@ -289,18 +371,48 @@ def addAssetTab (assetID,isRef):
 
 
 
+def selectFolUpgradeRamp(*args):
+    global createWithAss
+    createWithAss=True
+    print createWithAss
+def yesCreateFolUpdgradeRamp(*args):
+    global createWithAss
+    createWithAss=True
+    print createWithAss
+def noCreateFolUpgradeRamp(*args):
+    global createWithAss
+    createWithAss=True
+    print createWithAss
+
+def setFolUpgradeRamp(*args):
+    global createWithAss
+    createWithAss=True
+    print createWithAss
+
+
 
 
 
 def yesCreateWithAss(*args):
     global createWithAss
-    createWithAss=True
-    print createWithAss
+    assetfromXML=True
+
 
 def noCreateWithAss(*args):
     global createWithAss
+    assetfromXML=False
+
+
+def yesCreateWithXMLAss(*args):
+    global createWithAss
+    createWithAss=True
+    print createWithAss
+
+def noCreateWithXMLAss(*args):
+    global createWithAss
     createWithAss=False
     print createWithAss
+
 
 def noRandyAss(*args):
     global doRandyAss
@@ -326,6 +438,70 @@ def noDrive(*args):
     doConnectDrive=False
 
     print doConnectDrive
+
+def yesPosU(*args):
+    global doConnectPosU
+    global inMode
+    doConnectPosU=True
+
+    print doConnectPosU
+def noPosU(*args):
+    global doConnectPosU
+    doConnectPosU=False
+
+    print doConnectPosU
+
+def yesPosV(*args):
+    global doConnectPosV
+    global inMode
+    doConnectPosV=True
+
+    print doConnectPosV
+def noPosV(*args):
+    global doConnectPosV
+    doConnectPosV=False
+
+    print doConnectPosV
+
+def yesRotX(*args):
+    global doConnectRotX
+    global inMode
+    doConnectRotX=True
+
+    print doConnectDrive
+def noRotX(*args):
+    global doConnectRotX
+    doConnectRotX=False
+
+    print doConnectRotX
+
+def yesRotY(*args):
+    global doConnectRotY
+    global inMode
+    doConnectRotY=True
+
+    print doConnectRotY
+def noRotY(*args):
+    global doConnectRotY
+    doConnectRotY=False
+
+    print doConnectRotY
+
+def yesRotZ(*args):
+    global doConnectRotZ
+    global inMode
+    doConnectRotZ=True
+
+    print doConnectRotZ
+def noRotZ(*args):
+    global doConnectRotZ
+    doConnectRotZ=False
+
+    print doConnectRotZ
+
+
+
+
 
 #lamprey menu defs
 def noTranslate(*args):
@@ -374,6 +550,14 @@ def yesAutoCreateMs(*args):
 def noAutoCreateMs(*args):
     global doAutoCreateMS
     doAutoCreateMScreateMS=False
+
+def yesCreateCAPN(*args):
+    global doCreateCAPN
+    doCreateCAPN=True
+def noCreateCAPN(*args):
+    global doCreateCAPN
+    doCreateCAPN=False
+
 
 def lampreyConnect (*args):
     global lampreyConnectOp
@@ -474,7 +658,7 @@ def selectAssetID(*args):
     if doRandyAss==True:
         print "randy"
         randyAss()
-    else:
+    if assetfromXML ==True:
         getAssetName = cmds.optionMenu("xmlAssetName", query=True, value=True)
         assetIDtrim = getAssetName.find("_")
         assetIDstr = getAssetName[None:assetIDtrim]
@@ -501,6 +685,8 @@ def selectAssetID(*args):
         cmds.textField("multiLCCtx", edit = True, text = getMultiAssCount )
         cmds.textField("assetIDtx", edit = True, text = assetID)
         cmds.textField("fileLocationtx", edit = True, text = fileLocation)
+    else:
+        assetID = 0
 
 def randyAss(*args):
     global assetID
@@ -597,7 +783,7 @@ def createCAPN(CAPNType,uCoord,vCoord,inputColor,inputThing):
     if CAPNType == "folCAPN":
         CAPNTypeName = CAPNType
         inputColor = inputColor
-        inputThing = inputThing #either a pos or a hair folicule
+        inputThing = inputThing #either a pos or a hair follicle
         CAPN = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" + CAPNTypeName)
 
         cmds.connectAttr(inputColor+".outColor", CAPN +".inColor")
@@ -613,6 +799,9 @@ def createCVA (createNewRamps):
     global globPosURamp
     global globPosVRamp
     global globDriveRamp
+    global globRotXRamp
+    global globRotYRamp
+    global globRotZRamp
     createNewRamps =True
     if createNewRamps == True:
 
@@ -622,23 +811,46 @@ def createCVA (createNewRamps):
         rampType= 1 #u-ramp
         newScaleRamp=createRamp(rampName,rampType)
         globScaleRamp= newScaleRamp
+        if doConnectPosU == True:
+            rampName= cvaName + "_posU_ramp"
+            rampType = 1 # u-ramps
+            newPosURamp=createRamp(rampName,rampType)
+            globPosURamp = newPosURamp
 
-        rampName= cvaName + "_posU_ramp"
-        rampType = 1 # u-ramps
-        newPosURamp=createRamp(rampName,rampType)
-        globPosURamp = newPosURamp
-
+        if doConnectPosV == True:
         #pos V ramp
-        rampName= cvaName +"_posV_ramp"
-        rampType = 0 # v-ramps
-        newPosVRamp=createRamp(rampName,rampType)
-        globPosVRamp = newPosVRamp
+            rampName= cvaName +"_posV_ramp"
+            rampType = 0 # v-ramps
+            newPosVRamp=createRamp(rampName,rampType)
+            globPosVRamp = newPosVRamp
 
         #drive ramp
-        rampName= cvaName + "_drive_ramp"
-        rampType = 1 # u-ramps
-        newDriveRamp=createRamp(rampName,rampType)
-        globDriveRamp = newDriveRamp
+        if doConnectDrive == True:
+            rampName= cvaName + "_drive_ramp"
+            rampType = 1 # u-ramps
+            newDriveRamp=createRamp(rampName,rampType)
+            globDriveRamp = newDriveRamp
+
+        #drive ramp
+        if doConnectRotX == True:
+            rampName= cvaName + "_rotX_ramp"
+            rampType = 1 # u-ramps
+            newRotXRamp=createRamp(rampName,rampType)
+            globRotXRamp = newRotXRamp
+        #drive ramp
+        if doConnectRotY == True:
+            rampName= cvaName + "_rotY_ramp"
+            rampType = 1 # u-ramps
+            newRotYRamp=createRamp(rampName,rampType)
+            globRotYRamp = newRotYRamp
+        #drive ramp
+        if doConnectRotZ == True:
+            rampName= cvaName + "_rotZ_ramp"
+            rampType = 1 # u-ramps
+            newRotZRamp=createRamp(rampName,rampType)
+            globRotZRamp = newRotZRamp
+
+
     createCVAroot()
     #get the loc count
     getloccount()
@@ -703,8 +915,8 @@ def createRamp(rampName,rampType):
 def getloccount ():
     global loccountX
     global loccountY
-    loccountX = cmds.intSliderGrp("loccountX",query=True, value = True)
-    loccountY = cmds.intSliderGrp("loccountY",query=True, value = True)
+    loccountX = cmds.intSliderGrp("loccountXtx",query=True, value = True)
+    loccountY = cmds.intSliderGrp("loccountYtx",query=True, value = True)
 
 
 
@@ -787,7 +999,7 @@ def mainLooped(iX,iY):
     cmds.connectAttr(nameAC + ".cry", aimconParent+ ".ry")
     cmds.connectAttr(nameAC + ".crz", aimconParent+ ".rz")
 
-    if createCAPNon ==True:
+    if doCreateCAPN ==True:
         #create the ColorAatPointNode CAPN
         CAPNType = "scale"
         CAPNScale = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
@@ -800,44 +1012,91 @@ def mainLooped(iX,iY):
 
 
 
-
+    if doConnectPosU ==True:
         CAPNType = "posU"
         CAPNposU = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
 
         cmds.connectAttr(globPosURamp+".outColor", CAPNposU +".inColor")
         cmds.connectAttr(poca + ".parameterU", CAPNposU + ".inUCoord" ,force = True)
         cmds.connectAttr(poca + ".parameterV", CAPNposU + ".inVCoord" ,force = True)
-        #need an rgbto lum node, because its a single value not a color.
+            #need an rgbto lum node, because its a single value not a color.
         posLumU= cmds.shadingNode("luminance", asUtility = True,name= cvaName +"_lumU")
         cmds.connectAttr(CAPNposU +".outColor", posLumU +".value")
         cmds.connectAttr (posLumU +".outValue", poct +".parameterU")
 
 
-
+    if doConnectPosV ==True:
         CAPNType = "posV"
         CAPNposV = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
 
         cmds.connectAttr(globPosVRamp+".outColor", CAPNposV +".inColor")
         cmds.connectAttr(poca + ".parameterU", CAPNposV + ".inUCoord" ,force = True)
         cmds.connectAttr(poca + ".parameterV", CAPNposV + ".inVCoord" ,force = True)
-        #need an rgbto lum node, because its a single value not a color.
+            #need an rgbto lum node, because its a single value not a color.
         posLumV= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNposV +".outColor", posLumV +".value")
         cmds.connectAttr (posLumV +".outValue", poct +".parameterV")
 
+    if doConnectRotX ==True:
+        CAPNType = "rotX"
+        CAPNrotX = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
+
+        cmds.connectAttr(globRotXRamp+".outColor", CAPNrotX +".inColor")
+        cmds.connectAttr(poct + ".parameterU", CAPNrotX + ".inUCoord" ,force = True)
+        cmds.connectAttr(poct + ".parameterV", CAPNrotX + ".inVCoord" ,force = True)
+        #need an rgbto lum node, because its a single value not a color.
+        rotXLumV= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumRotX")
+        cmds.connectAttr(CAPNrotX +".outColor", rotXLumV +".value")
+        rotXmdiv = cmds.shadingNode("multiplyDivide", asUtility = True, name= cvaName +"_rotxMdiv")
+        cmds.connectAttr(rotXLumV + ".outValue", rotXmdiv + ".input1.input1X.")
+        cmds.setAttr(rotXmdiv + ".input2X", 360)
+        cmds.connectAttr(rotXmdiv + ".outputX", nameAC + ".offset.offsetX")
+
+    if doConnectRotY ==True:
+        CAPNType = "RotY"
+        CAPNRotY = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
+
+        cmds.connectAttr(globRotYRamp+".outColor", CAPNRotY +".inColor")
+        cmds.connectAttr(poct + ".parameterU", CAPNRotY + ".inUCoord" ,force = True)
+        cmds.connectAttr(poct + ".parameterV", CAPNRotY + ".inVCoord" ,force = True)
+        #need an rgbto lum node, because its a single value not a color.
+        RotYLumV= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumRotY")
+        cmds.connectAttr(CAPNRotY +".outColor", RotYLumV +".value")
+        RotYmdiv = cmds.shadingNode("multiplyDivide", asUtility = True, name= cvaName +"_RotYMdiv")
+        cmds.connectAttr(RotYLumV + ".outValue", RotYmdiv + ".input1.input1X.")
+        cmds.setAttr(RotYmdiv + ".input2X", 360)
+        cmds.connectAttr(RotYmdiv + ".outputX", nameAC + ".offset.offsetY")
+
+    if doConnectRotZ ==True:
+        CAPNType = "RotZ"
+        CAPNRotZ = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
+
+        cmds.connectAttr(globRotZRamp+".outColor", CAPNRotZ +".inColor")
+        cmds.connectAttr(poct + ".parameterU", CAPNRotZ + ".inUCoord" ,force = True)
+        cmds.connectAttr(poct + ".parameterV", CAPNRotZ + ".inVCoord" ,force = True)
+        #need an rgbto lum node, because its a single value not a color.
+        RotZLumV= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumRotZ")
+        cmds.connectAttr(CAPNRotZ +".outColor", RotZLumV +".value")
+        RotZmdiv = cmds.shadingNode("multiplyDivide", asUtility = True, name= cvaName +"_RotZMdiv")
+        cmds.connectAttr(RotZLumV + ".outValue", RotZmdiv + ".input1.input1X.")
+        cmds.setAttr(RotZmdiv + ".input2X", 360)
+        cmds.connectAttr(RotZmdiv + ".outputX", nameAC + ".offset.offsetZ")
+
+
+    if doConnectDrive ==True:
         CAPNType = "drive"
         CAPNDrive = cmds.shadingNode("CVA_ColorAtPointNode", asUtility=True, name = cvaName + "_CAPN_" +CAPNType)
 
         cmds.connectAttr(globDriveRamp+".outColor", CAPNDrive +".inColor")
         cmds.connectAttr(poct + ".parameterU", CAPNDrive + ".inUCoord" ,force = True)
         cmds.connectAttr(poct + ".parameterV", CAPNDrive + ".inVCoord" ,force = True)
-        #need an rgbto lum node, because its a single value not a color.
+            #need an rgbto lum node, because its a single value not a color.
         lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
         cmds.connectAttr(CAPNDrive +".outColor", lumDrive +".value")
-        #connect drive
+            #connect drive
         drivePlug = lastMScreated + "_m"
-        if doConnectDrive == True:
-            cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
+
+        cmds.connectAttr (lumDrive +".outValue", drivePlug +".drive")
 
     #if createing with an asset
     if createWithAss ==True:
@@ -1145,7 +1404,7 @@ def parentScaleFol (*args):
 
     #constraints
     cmds.select(master,peonGrp)
-    #offseting the contrain cuz hair folicules are tilted.
+    #offseting the contrain cuz hair follicles are tilted.
     cmds.parentConstraint (master,peonGrp, mo=True)
 
     cmds.scaleConstraint(master,peonGrp, mo = True)
@@ -1256,7 +1515,7 @@ def addMultiAssetCVA(assetID,isRef):
 ##Loc Array aka lamprey
 def locArray(masterName):
 
-    masterName = cmds.textField("arrayName", q=True, text = True)
+    masterName = cvaName
     typeMS = "master"
     selArray = cmds.ls(sl=True)
     aCount = len(selArray)
@@ -1268,7 +1527,7 @@ def locArray(masterName):
         irayName = "%s_%s" % (masterName,cvaAlphaCounter)
 
         cmds.select(selArray[iray])
-        irayPos = cmds.xform(query=True, worldSpace=True, translation =True)
+        irayPos = cmds.xform(query=True, worldSpace=True, rotatePivot =True)
         irayRot = cmds.xform(query=True, worldSpace=True, rotation =True)
         iraySca = cmds.xform(query=True, worldSpace=True, scale =True)
         if doFolUpgrade ==True:
@@ -1309,7 +1568,7 @@ def folUpgrade (uCoord,vCoord,folName):
     paraV = vCoord
     folName=folName
 
-    CAPNType = "folCAPN"
+
 
     folSel = cmds.ls(sl=True)
     cmds.addAttr (folSel, ln = "drive", k = True, dv = 0)
@@ -1317,23 +1576,21 @@ def folUpgrade (uCoord,vCoord,folName):
     inputFolShape = cmds.listRelatives(folSel, shapes=True)
     inputFol = inputFolShape
     inputColor = "ramp1"
-    #createing a ramp
-    #rampName=cvaName + "_folRamp"
-    #rampType= 1 #u-ramp
-    #inputColor=createRamp(rampName,rampType)
 
+    if doCreateCAPN == True:
     #create CAPN
-    createCAPN(CAPNType,paraU,paraV,inputColor,inputFol[0])
+        CAPNType = "folCAPN"
+        createCAPN(CAPNType,paraU,paraV,inputColor,inputFol[0])
     #need an rgbto lum node, because its a single value not a color.
     #addDrive to foli
 
 
     #create the pos for the posistion aka poca
-    lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
-    cmds.connectAttr(lastCAPN +".outColor", lumDrive +".value")
+        lumDrive= cmds.shadingNode("luminance", asUtility = True, name= cvaName +"_lumV")
+        cmds.connectAttr(lastCAPN +".outColor", lumDrive +".value")
     #connect drive
-    drivePlug = str(folSel)
-    cmds.connectAttr (lumDrive +".outValue", folSel[0] +".drive")
+        drivePlug = str(folSel)
+        cmds.connectAttr (lumDrive +".outValue", folSel[0] +".drive")
 
 
 
@@ -1365,7 +1622,7 @@ def ultraPOS(uCoord,vCoord):
 
     #adding the aim constraint
     aimconParent = lastMScreated +"_m"
-    nameAC = cmds.createNode ("aimConstraint" ,parent = aimconParent, name = cvaName + "_aimcon" )
+    nameAC = cmds.createNode ("aimConstraint" ,parent = aimconParent, name = cvaName + "_aimcon" + lastMScreated )
 
     #setting the params on the aim constraint
     cmds.setAttr(nameAC + ".tg[0].tw", 1)
