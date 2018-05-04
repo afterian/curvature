@@ -1,2 +1,2 @@
 # curvature
-Python Curve rigging tool for maya
+A Maya Rigging and Fx tool 
