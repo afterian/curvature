@@ -3,7 +3,8 @@ import maya.mel as mel
 from functools import partial
 import xml.dom.minidom as xd
 from random import randint
-
+import MASH.api as mapi
+import flux.ui.core as fui
 """ windows not saving my shelf buttons.
 import cva
 reload(cva)
@@ -24,6 +25,7 @@ To do:
 -asset input selection tab may be borked. see line. 687
 add nurb sphere upgrade.
 -adding controls.
+
 """
 ##version .06 "Lamprey" added loc array functionality. Select some things, click button, get locs at pos
 ##version .07 PosAtSpot ads a loc at surface pos,  def for Surface to pointOnsurface to Locater, it mainLooped will eventually be depreciated. it works now, not messing with it. But its possibly redundent.
@@ -34,12 +36,19 @@ add nurb sphere upgrade.
 #version .11 added alpha counter functionality to the other items.
 #version .12 Xml,
 #version .13 fixing bug on xml going past 11.
-#version.4 randy ass
+#version. 14 randy ass
+#version .15 icons and visual candy
+#version .16 replicatorator + curvesmash + separting surface from curves. will need to regress through old functions.added mash framwork.
 
 #defining global vars, I would like to find a better way to do this.
 curvesel = ""
 curveselShape =""
+curveaimselShape =""
+mashName = ""
+curveaimsel = ""
+surfsel = ""
 cvaName = "cva"
+curveWarp = ""
 poca = ""
 lastMScreated =""
 globScaleRamp=""
@@ -93,6 +102,7 @@ multiLCC=1
 assetID =0
 fileLocation =""
 superDuper = ""
+mashMesh =""
 
 #createNewRamps=True
 
@@ -118,8 +128,9 @@ def cvaUI():
     mainLayout = cmds.columnLayout("mainColumn", w =350, h = 700)
     #banner image
     cmds.image(w = 350, h =60, image = imagePathBanner)
-    cmds.separator(h=40)
+    cmds.separator(h=20)
     cmds.textField("cvaNametx",en = False, text = "NO CVA ASSIGNED", w= 360)
+    cmds.textField("mashNametx",en = False, text = "NO MASH ASSIGNED", w= 360)
     #feedback
     cmds.columnLayout( "mainColumn", adjustableColumn = True)
     cmds.gridLayout("nameGridLayout01", numberOfRowsColumns = (3,2), cellWidthHeight = (180,20), parent = "mainColumn")
@@ -130,14 +141,24 @@ def cvaUI():
     cmds.button(command = getcvaName, label = "Set CVA", w = 350, h = 20)
     cmds.textField("cva", w= 350, tx= "cva")
 
+    #mash
+    cmds.button(command = getMashName, label = "Set Mash", w = 350, h = 20)
+    cmds.textField("mash", w= 350, tx= "mash1")
+
         #Alpha Numeric counter.
     cmds.button(command = cvaAlphaCounterSet, label = "set alpha counter", w = 350, h = 20)
     cmds.textField("cvaAlphaCounterTx", text = "aaa")
     curvesel = "no surface"
 
 #curveAture tab
-    cmds.button(command = getcurvesel, label = "Load Surface", w = 350, h = 20)
+    cmds.button(command = getcurvesel, label = "Load Surface/curve", w = 350, h = 20)
     cmds.textField("curveseltx", w= 350, en = False, text = "NO SURFACE SELECTED")
+
+    cmds.button(command = getcurveaimsel, label = "Load Surface/curve aim", w = 350, h = 20)
+    cmds.textField("curveaimseltx", w= 350, en = False, text = "NO SURFACE SELECTED")
+
+    cmds.button(command = getsurfsel, label = "Load Surface", w = 350, h = 20)
+    cmds.textField("surfseltx", w= 350, en = False, text = "NO SURFACE SELECTED")
 
 
 
@@ -285,6 +306,7 @@ def cvaUI():
 
 
     ###############################
+    #
     #assets tab
     cmds.columnLayout("Assets", w = 350, h =600, parent = "mainTabs")
     cmds.textField("name_space_a", w = 100, h=20,tx="asset")
@@ -334,6 +356,16 @@ def cvaUI():
     cmds.optionMenu( "xmlAssetName", label='Asset', changeCommand = selectAssetID)
     cmds.menuItem(label="Select asset",en=False)
 
+    #smash
+    cmds.separator(h=40)
+    cmds.textField("smash_desc",en = False , tx = "Smash")
+    cmds.button (command= createSmash_Linear, w=30, h=30,label="createSmash_Linear")
+    cmds.button (command= createSmash_Linear_wrap, w=30, h=30,label="wrap")
+    cmds.button (command= createSmash_Linear_aim, w=30, h=30,label="aim")
+    cmds.button (command= createSmash_Linear_reverse, w=30, h=30,label="reverse")
+    cmds.button (command= createSmash_Linear_freeze, w=30, h=30,label="freeze")
+    cmds.button (command= createSmash_Linear_merge, w=30, h=30,label="merge")
+
 
 
 
@@ -344,6 +376,84 @@ def cvaUI():
 
 #############################################################################
 #UI Functions.
+def createSmash_Linear_merge(*args):
+    global curvesel
+    global mashName
+    global curveaimsel
+    global MashMesh
+    cmds.polyMergeVertex(mashMesh)
+
+def createSmash_Linear_freeze(*args):
+    global curvesel
+    global mashName
+    global curveaimsel
+    global mashMesh
+
+    mashMesh = cmds.duplicate(mashName + "_ReproMesh", name = (mashName + "_" + cvaAlphaCounter))
+    cvaAlphaCountUp(cvaAlphaCounter)
+def createSmash_Linear_reverse(*args):
+    global curvesel
+    global mashName
+    global curveaimsel
+    cmds.reverseCurve(curvesel, ch = False ,replaceOriginal = True)
+
+def createSmash_Linear_aim(*args):
+    global curvesel
+    global mashName
+    global curveaimselShape
+    global curveWarp
+
+
+    cmds.connectAttr(curveaimselShape[0] + ".worldSpace", curveWarp + ".aimCurve")
+    cmds.setAttr(curveWarp +".aimMode",3)
+
+def createSmash_Linear_wrap(*args):
+    global curvesel
+    global mashName
+    global curveaimsel
+    global curveWarp
+    curveWarp = cmds.createCurveWarp(mashName + "_ReproMesh",curvesel)
+    cmds.setAttr(curveWarp + ".loopClosedCurves", 1)
+
+    ##using a separte def to create the mash network
+
+def createSmash_Linear (*args):
+    global superDuper
+    global curvesel
+    global curveaimsel
+    global mashName
+    #getting the surface selection to define the name.
+    global surfsel
+
+    #get arclen of CurVe
+    cmds.select(curvesel)
+    curveLength = cmds.arclen(curvesel, ch = True)
+    print (curveLength)
+
+
+
+    #create the basic mashnetwork
+    print (superDuper[0])
+    cmds.select( superDuper)
+    smash_network = mapi.Network()
+    smash_network.createNetwork(mashName)
+
+    #connect arc length to distribute
+    cmds.connectAttr((curveLength + ".arcLength"),mashName + "_Distribute.pointCount" )
+    #create a subtract node to -1
+    disCountMDiv = cmds.shadingNode("plusMinusAverage", asUtility = True, name= mashName +"_disCountMdiv")
+    cmds.setAttr((disCountMDiv +".input1D[1]"),  1)
+    cmds.setAttr((disCountMDiv +".operation"),  2)
+
+    cmds.connectAttr((mashName + "_Distribute.pointCount"),disCountMDiv+ ".input1D[0]" )
+    cmds.connectAttr((disCountMDiv+ ".output1D" ),mashName + "_Distribute.amplitudeX" )
+
+
+
+
+
+
+
 
 def addAssetTab (assetID,isRef):
     nameSpaceField="name_space_a"
@@ -731,7 +841,11 @@ def getcvaName(*args):
     global cvaName
     cvaName = cmds.textField("cva" , query=True, tx = True)
     addtotx = cmds.textField("cvaNametx", edit = True, text = cvaName)
-
+#gets the name of the mashnetwork
+def getMashName(*args):
+    global mashName
+    mashName = cmds.textField("mash" , query=True, tx = True)
+    addtotx = cmds.textField("mashNametx", edit = True, text = mashName)
 
 
 
@@ -747,6 +861,29 @@ def getcurvesel(*args):
     curveselShape = cmds.listRelatives(curvesel, shapes=True)
     print curvesel
     print curveselShape
+
+def getcurveaimsel(*args):
+    global curveaimsel
+    global curveaimselShape
+    global surfaceType
+    surfaceType="aimcurve"
+    curveaimsel=cmds.ls(sl=True)
+    addtotx=cmds.textField("curveaimseltx", edit=True, text=curveaimsel[0])
+    curveaimselShape = cmds.listRelatives(curveaimsel, shapes=True)
+    print curveaimsel
+    print curveaimselShape
+
+def getsurfsel(*args):
+    global curvesel
+    global curveselShape
+    global surfaceType
+    surfaceType="srfNurb"
+    curvesel=cmds.ls(sl=True)
+    addtotx=cmds.textField("surfseltx", edit=True, text=curvesel[0])
+    curveselShape = cmds.listRelatives(curvesel, shapes=True)
+    print curvesel
+    print curveselShape
+
 
 def getUpVectorX (*args):
     global upX
@@ -1666,7 +1803,7 @@ def ultraPOS(uCoord,vCoord):
 
 
 ## ###### loc at spot
-def locAtSpot(curveSel):
+def locAtSpot(curvesel):
     typeMS = "loc"
 #holy crap all this to clean the string.. has to be a smarter way.
 
